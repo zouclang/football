@@ -1,0 +1,85 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                 String  @id @default(cuid())
+  name               String
+  birthDate          String? // e.g., "1990-01"
+  enrollmentYear     String? // e.g., "2008"
+  major              String?
+  jerseyNumber       String? // e.g., "10"
+  jerseySize         String? // e.g., "XL", "L", "M"
+  profilePhoto       String? // URL
+  suzhouProofType    String? // e.g., "ID_CARD", "RESIDENCE_PERMIT", "SOCIAL_SECURITY", "PROPERTY"
+  suzhouProofUrl     String? // URL
+  educationProofType String? // e.g., "DIPLOMA", "DEGREE", "MBA"
+  educationProofUrl  String? // URL
+  personalBalance    Float   @default(0)
+
+  attendances          Attendance[]
+  personalTransactions PersonalTransaction[]
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
+model TeamInfo {
+  id              String   @id @default(cuid())
+  foundationDate  String?  // e.g., "YYYY-MM-DD"
+  groupPhotoUrl   String?
+  highlightPhotos String?  // JSON serialized string of URLs
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model Match {
+  id         String   @id @default(cuid())
+  date       DateTime
+  opponent   String
+  type       String   // e.g., "LEAGUE", "INTERNAL_WARMUP", "EXTERNAL_FRIENDLY"
+  // #12: 比赛结果字段
+  ourScore   Int?     // 我方进球数
+  theirScore Int?     // 对方进球数
+  result     String?  // "WIN" | "DRAW" | "LOSS"
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  attendances Attendance[]
+}
+
+model Attendance {
+  id        String   @id @default(cuid())
+  userId    String
+  matchId   String
+  createdAt DateTime @default(now())
+
+  user  User  @relation(fields: [userId], references: [id])
+  match Match @relation(fields: [matchId], references: [id])
+
+  @@unique([userId, matchId])
+}
+
+model TeamFundTransaction {
+  id              String   @id @default(cuid())
+  amount          Float
+  transactionType String   // "INCOME" or "EXPENSE"
+  category        String   // e.g., "ALUMNI_SUPPORT", "SPONSORSHIP", "TEAM_FEE", "LEAGUE_FEE", "DEPOSIT", "DINNER_EXPENSE", etc.
+  description     String?
+  createdAt       DateTime @default(now())
+}
+
+model PersonalTransaction {
+  id          String   @id @default(cuid())
+  userId      String
+  amount      Float    // Positive for deposit/recharge, negative for expense/dining share
+  category    String   // e.g., "RECHARGE", "DINING_SHARE"
+  description String?
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+}
