@@ -1,3 +1,5 @@
+export const runtime = 'edge'
+
 import prisma from '@/lib/prisma'
 import { FinanceClient } from '@/components/FinanceClient'
 import { getDiningRecords } from '@/lib/actions/finance'

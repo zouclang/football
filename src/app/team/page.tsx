@@ -3,6 +3,7 @@ import { TeamClient } from '@/components/TeamClient'
 import prisma from '@/lib/prisma'
 
 export const dynamic = 'force-dynamic'
+export const runtime = 'edge'
 
 export default async function TeamPage() {
     const teamInfo = await getTeamInfo()

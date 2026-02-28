@@ -2,6 +2,7 @@ import prisma from '@/lib/prisma'
 import { MatchClient } from '@/components/MatchClient'
 
 export const dynamic = 'force-dynamic'
+export const runtime = 'edge'
 
 export default async function MatchesPage(props: { searchParams: Promise<{ tournamentId?: string, editMatchId?: string, year?: string, opponent?: string }> }) {
     const { tournamentId, editMatchId, year, opponent } = await props.searchParams

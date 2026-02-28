@@ -3,6 +3,7 @@ import prisma from '@/lib/prisma'
 import { TournamentClient } from '@/components/TournamentClient'
 
 export const dynamic = 'force-dynamic'
+export const runtime = 'edge'
 
 export default async function TournamentsPage() {
     const [tournaments, players] = await Promise.all([

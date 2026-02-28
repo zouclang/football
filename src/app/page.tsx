@@ -1,3 +1,5 @@
+export const runtime = 'edge'
+
 import prisma from '@/lib/prisma'
 import { Trophy, Users, DollarSign, Activity } from 'lucide-react'
 import { DashboardCharts } from '@/components/DashboardCharts'

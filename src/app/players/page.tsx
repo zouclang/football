@@ -2,6 +2,7 @@ import prisma from '@/lib/prisma'
 import { PlayerClient } from '@/components/PlayerClient'
 
 export const dynamic = 'force-dynamic'
+export const runtime = 'edge'
 
 export default async function PlayersPage(props: { searchParams: Promise<{ year?: string }> }) {
     const searchParams = await props.searchParams;

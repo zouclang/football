@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import { PlayerProfileClient } from '@/components/PlayerProfileClient'
 
 export const dynamic = 'force-dynamic'
+export const runtime = 'edge'
 
 export default async function PlayerProfilePage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = await params;
