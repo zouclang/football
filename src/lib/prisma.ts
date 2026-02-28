@@ -15,8 +15,14 @@ const prismaClientSingleton = () => {
   if (typeof (globalThis as any).EdgeRuntime === 'string') {
     return new PrismaClient({
       adapter: {
-        queryRaw: async () => [],
+        queryRaw: async () => ({ columnNames: [], columnTypes: [], rows: [] }),
         executeRaw: async () => 0,
+        transactionContext: async () => ({
+          queryRaw: async () => ({ columnNames: [], columnTypes: [], rows: [] }),
+          executeRaw: async () => 0,
+          commit: async () => { },
+          rollback: async () => { },
+        }),
         provider: 'sqlite',
       } as any
     })
