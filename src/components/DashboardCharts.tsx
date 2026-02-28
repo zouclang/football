@@ -5,11 +5,13 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as PieTooltip, Legend
 type ChartProps = {
     type: 'pie' | 'bar'
     data: any[]
+    barName?: string
+    barColor?: string
 }
 
 const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899']
 
-export function DashboardCharts({ type, data }: ChartProps) {
+export function DashboardCharts({ type, data, barName, barColor }: ChartProps) {
     if (type === 'pie') {
         return (
             <div className="h-[300px] w-full">
@@ -45,7 +47,7 @@ export function DashboardCharts({ type, data }: ChartProps) {
                         <XAxis dataKey="name" axisLine={false} tickLine={false} />
                         <YAxis allowDecimals={false} axisLine={false} tickLine={false} />
                         <BarTooltip cursor={{ fill: 'transparent' }} />
-                        <Bar dataKey="count" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={40} name="出勤次数" />
+                        <Bar dataKey="count" fill={barColor || "#3b82f6"} radius={[4, 4, 0, 0]} barSize={40} name={barName || "出勤次数"} />
                     </BarChart>
                 </ResponsiveContainer>
             </div>

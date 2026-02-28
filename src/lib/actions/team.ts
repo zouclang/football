@@ -4,9 +4,12 @@ import prisma from '../prisma'
 import { revalidatePath } from 'next/cache'
 
 export type TeamInfoInput = {
-    foundationDate?: string
-    groupPhotoUrl?: string
-    highlightPhotos?: string
+    foundationDate?: string | null
+    groupPhotoUrl?: string | null
+    highlightPhotos?: string | null
+    captainId?: string | null
+    leaderId?: string | null
+    leaderName?: string | null
 }
 
 export async function getTeamInfo() {

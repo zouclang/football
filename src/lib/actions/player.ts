@@ -6,65 +6,87 @@ import { revalidatePath } from 'next/cache'
 export type PlayerInput = {
     id?: string
     name: string
-    birthDate?: string
-    enrollmentYear?: string
-    major?: string
-    jerseyNumber?: string
-    jerseySize?: string
-    profilePhoto?: string
-    suzhouProofType?: string
-    suzhouProofUrl?: string
-    educationProofType?: string
-    educationProofUrl?: string
+    birthDate?: string | null
+    enrollmentYear?: string | null
+    major?: string | null
+    jerseyNumber?: string | null
+    jerseySize?: string | null
+    profilePhoto?: string | null
+    suzhouProofType?: string | null
+    suzhouProofUrl?: string | null
+    educationProofType?: string | null
+    educationProofUrl?: string | null
+    positions?: string | null
+    teamRole?: string | null
+    isActive?: boolean
+    isMember?: boolean
 }
 
 export async function getPlayers() {
-    return await prisma.user.findMany({
-        orderBy: { createdAt: 'desc' }
+    return prisma.user.findMany({
+        orderBy: {
+            name: 'asc'
+        }
     })
 }
 
 export async function getPlayer(id: string) {
-    return await prisma.user.findUnique({
+    return prisma.user.findUnique({
         where: { id }
     })
 }
 
-// #6: 过滤空字符串，避免用空值覆盖数据库已有数据
-function cleanStr(v: string | undefined): string | undefined {
-    return v && v.trim() !== '' ? v : undefined
-}
+export async function savePlayer(player: PlayerInput) {
+    try {
+        if (player.id) {
+            await prisma.user.update({
+                where: { id: player.id },
+                data: {
+                    name: player.name,
+                    birthDate: player.birthDate,
+                    enrollmentYear: player.enrollmentYear,
+                    major: player.major,
+                    jerseyNumber: player.jerseyNumber,
+                    jerseySize: player.jerseySize,
+                    profilePhoto: player.profilePhoto,
+                    suzhouProofType: player.suzhouProofType,
+                    suzhouProofUrl: player.suzhouProofUrl,
+                    educationProofType: player.educationProofType,
+                    educationProofUrl: player.educationProofUrl,
+                    positions: player.positions,
+                    teamRole: player.teamRole,
+                    isActive: player.isActive ?? true,
+                    isMember: player.isMember ?? false,
+                }
+            })
+        } else {
+            await prisma.user.create({
+                data: {
+                    name: player.name,
+                    birthDate: player.birthDate,
+                    enrollmentYear: player.enrollmentYear,
+                    major: player.major,
+                    jerseyNumber: player.jerseyNumber,
+                    jerseySize: player.jerseySize,
+                    profilePhoto: player.profilePhoto,
+                    suzhouProofType: player.suzhouProofType,
+                    suzhouProofUrl: player.suzhouProofUrl,
+                    educationProofType: player.educationProofType,
+                    educationProofUrl: player.educationProofUrl,
+                    positions: player.positions,
+                    teamRole: player.teamRole,
+                    isActive: player.isActive ?? true,
+                    isMember: player.isMember ?? false,
+                }
+            })
+        }
 
-export async function savePlayer(data: PlayerInput) {
-    const { id, ...rest } = data
-
-    const cleaned = {
-        name: rest.name,
-        birthDate: cleanStr(rest.birthDate),
-        enrollmentYear: cleanStr(rest.enrollmentYear),
-        major: cleanStr(rest.major),
-        jerseyNumber: cleanStr(rest.jerseyNumber),
-        jerseySize: cleanStr(rest.jerseySize),
-        profilePhoto: cleanStr(rest.profilePhoto),
-        suzhouProofType: cleanStr(rest.suzhouProofType),
-        suzhouProofUrl: cleanStr(rest.suzhouProofUrl),
-        educationProofType: cleanStr(rest.educationProofType),
-        educationProofUrl: cleanStr(rest.educationProofUrl),
+        revalidatePath('/players')
+        revalidatePath('/') // #9: 首页展示球员人数，需一并刷新
+    } catch (error) {
+        console.error("服务端保存队员失败:", error)
+        throw new Error("服务端保存队员失败")
     }
-
-    if (id) {
-        await prisma.user.update({
-            where: { id },
-            data: cleaned
-        })
-    } else {
-        await prisma.user.create({
-            data: cleaned
-        })
-    }
-
-    revalidatePath('/players')
-    revalidatePath('/') // #9: 首页展示球员人数，需一并刷新
 }
 
 export async function deletePlayer(id: string) {

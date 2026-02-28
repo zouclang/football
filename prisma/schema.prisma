@@ -1,5 +1,6 @@
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
 }
 
 datasource db {
@@ -13,6 +14,7 @@ model User {
   birthDate          String? // e.g., "1990-01"
   enrollmentYear     String? // e.g., "2008"
   major              String?
+  teamRole           String? // e.g., "队长", "副队长", "领队", "教练"
   jerseyNumber       String? // e.g., "10"
   jerseySize         String? // e.g., "XL", "L", "M"
   profilePhoto       String? // URL
@@ -20,12 +22,20 @@ model User {
   suzhouProofUrl     String? // URL
   educationProofType String? // e.g., "DIPLOMA", "DEGREE", "MBA"
   educationProofUrl  String? // URL
+  positions          String? // 方便记录 FM 的场上位置
   personalBalance    Float   @default(0)
+  isActive           Boolean @default(true) // 是否活跃成员，非活跃成员在各类人员清单中被默认过滤隐藏
+  isMember           Boolean @default(false)
 
   attendances          Attendance[]
   personalTransactions PersonalTransaction[]
+  tournaments          Tournament[]
+  memberTransactions   MemberFundTransaction[]
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
+
+  asCaptain TeamInfo[] @relation("CaptainRelation")
+  asLeader  TeamInfo[] @relation("LeaderRelation")
 }
 
 model TeamInfo {
@@ -35,6 +45,13 @@ model TeamInfo {
   highlightPhotos String?  // JSON serialized string of URLs
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+
+  captainId  String?
+  leaderId   String?  // If leader is a player
+  leaderName String?  // If leader is non-player
+
+  captain User? @relation("CaptainRelation", fields: [captainId], references: [id])
+  leader  User? @relation("LeaderRelation", fields: [leaderId], references: [id])
 }
 
 model Match {
@@ -42,20 +59,26 @@ model Match {
   date       DateTime
   opponent   String
   type       String   // e.g., "LEAGUE", "INTERNAL_WARMUP", "EXTERNAL_FRIENDLY"
-  // #12: 比赛结果字段
-  ourScore   Int?     // 我方进球数
-  theirScore Int?     // 对方进球数
+  leagueName String?  // 当 type 为 LEAGUE (高校联赛) 时保存具体的赛事杯名
+  ourScore   Int?
+  theirScore Int?
   result     String?  // "WIN" | "DRAW" | "LOSS"
+  cost       Float?   @default(0)
+  tournamentId String?
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
   attendances Attendance[]
+  tournament  Tournament? @relation(fields: [tournamentId], references: [id])
 }
 
 model Attendance {
   id        String   @id @default(cuid())
   userId    String
   matchId   String
+  goals     Int      @default(0) // 本场进球数
+  assists   Int      @default(0) // 本场助攻数
+  fee       Float?   @default(0)
   createdAt DateTime @default(now())
 
   user  User  @relation(fields: [userId], references: [id])
@@ -68,9 +91,12 @@ model TeamFundTransaction {
   id              String   @id @default(cuid())
   amount          Float
   transactionType String   // "INCOME" or "EXPENSE"
-  category        String   // e.g., "ALUMNI_SUPPORT", "SPONSORSHIP", "TEAM_FEE", "LEAGUE_FEE", "DEPOSIT", "DINNER_EXPENSE", etc.
+  category        String   // e.g., "场地费", "水费"
   description     String?
+  date            DateTime @default(now()) // Actual transaction date
+  handlerName     String?  // Person who handled this transaction
   createdAt       DateTime @default(now())
+  diningRecordId  String?  // Optional link to a dining record
 }
 
 model PersonalTransaction {
@@ -79,7 +105,52 @@ model PersonalTransaction {
   amount      Float    // Positive for deposit/recharge, negative for expense/dining share
   category    String   // e.g., "RECHARGE", "DINING_SHARE"
   description String?
+  date        DateTime @default(now()) // Actual transaction date
   createdAt   DateTime @default(now())
+  diningRecordId  String?  // Optional link to a dining record
 
   user User @relation(fields: [userId], references: [id])
+}
+
+model DiningRecord {
+  id               String   @id @default(cuid())
+  date             DateTime // 聚餐时间
+  totalAmount      Float    // 总花销金额
+  perPersonAmount  Float    // 单人人均消费额度
+  subsidyAmount    Float    // 球队补贴部分（如有）
+  handlerName      String?  // 垫付经办人
+  restaurantName   String?  // 饭店名称 / 账单说明
+  participantCount Int      // 聚餐总人数
+  createdAt        DateTime @default(now())
+}
+
+model Tournament {
+  id              String   @id @default(cuid())
+  name            String   // 赛事名称
+  startDate       String?  // 赛事开始时间 e.g. "YYYY-MM-DD"
+  endDate         String?  // 赛事结束时间 e.g. "YYYY-MM-DD"
+  entryFee        Float    @default(0) // 报名费
+  deposit         Float    @default(0) // 保证金
+  deduction       Float    @default(0) // 扣费
+  finalRank       String?  // 最终排名/成绩
+  notes           String?  // 备注说明
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  players         User[]   // 此项赛事的报名大名单
+  matches         Match[]  // 此项赛事所有开战记录
+}
+
+model MemberFundTransaction {
+  id              String   @id @default(cuid())
+  date            DateTime // 发生账单时间
+  totalAmount     Float    // 收支总额度量
+  perPersonAmount Float?   // 例如集体交会费，记下每人的缴纳额
+  type            String   // "INCOME" (缴费/结余等) | "EXPENSE" (用于热身赛倒挂兜底等)
+  description     String?
+  matchId         String?  // 如果是因为热身赛轧差进来的
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  payers          User[]   // 这笔账算在了哪几个会员头上
 }

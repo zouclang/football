@@ -2,7 +2,6 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-// #8: 改用统一的 cn() 工具函数，删除本文件内的重复定义
 import { cn } from '@/lib/utils'
 import { Trophy, Users, LayoutDashboard, Calendar, DollarSign, Menu, X } from 'lucide-react'
 import { useState } from 'react'
@@ -10,8 +9,8 @@ import { useState } from 'react'
 const navItems = [
     { href: '/', label: '总览', icon: LayoutDashboard },
     { href: '/players', label: '球员管理', icon: Users },
-    { href: '/team', label: '球队概况', icon: Trophy },
-    { href: '/matches', label: '比赛考勤', icon: Calendar },
+    { href: '/tournaments', label: '赛事管理', icon: Trophy },
+    { href: '/matches', label: '考勤管理', icon: Calendar },
     { href: '/finance', label: '财务管理', icon: DollarSign },
 ]
 
@@ -25,7 +24,7 @@ export function Navbar() {
                 <div className="flex items-center justify-between h-16">
                     <div className="flex items-center gap-2">
                         <Trophy className="h-8 w-8 text-emerald-500" />
-                        <span className="font-bold text-xl tracking-tight">校友会足球队</span>
+                        <span className="font-bold text-xl tracking-tight">大连理工大学苏州校友会足球队</span>
                     </div>
 
                     {/* Desktop Menu */}

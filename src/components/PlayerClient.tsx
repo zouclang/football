@@ -3,7 +3,10 @@
 import { useState } from 'react'
 import { Plus, Edit2, Trash2, X } from 'lucide-react'
 import { savePlayer, deletePlayer, type PlayerInput } from '@/lib/actions/player'
-import { uploadFile } from '@/lib/actions/upload'
+import { uploadToStorage } from '@/lib/actions/storage'
+import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { Pagination } from './Pagination'
 
 // #7: 使用具体类型而非 any
 type Player = {
@@ -19,15 +22,28 @@ type Player = {
     suzhouProofUrl: string | null
     educationProofType: string | null
     educationProofUrl: string | null
+    positions: string | null
+    teamRole: string | null
     personalBalance: number
     attendanceRate?: string
+    yearlyAppearances?: number
+    yearlyGoals?: number
+    yearlyAssists?: number
+    isActive: boolean
+    isMember: boolean
 }
 
-export function PlayerClient({ initialPlayers }: { initialPlayers: Player[] }) {
+export function PlayerClient({ initialPlayers, currentYear }: { initialPlayers: Player[], currentYear?: string }) {
+    const router = useRouter()
     const [isOpen, setIsOpen] = useState(false)
+    const [filterActive, setFilterActive] = useState<'all' | 'active' | 'inactive'>('active')
     const [editingPlayer, setEditingPlayer] = useState<Player | null>(null)
     // #10: 用 deletingId 跟踪正在删除的球员，防止重复点击
     const [deletingId, setDeletingId] = useState<string | null>(null)
+
+    // 分页态
+    const [currentPage, setCurrentPage] = useState(1)
+    const [pageSize, setPageSize] = useState(20)
 
     const handleOpen = (player?: Player) => {
         if (player) setEditingPlayer(player)
@@ -46,63 +62,141 @@ export function PlayerClient({ initialPlayers }: { initialPlayers: Player[] }) {
         }
     }
 
+    const filteredPlayers = initialPlayers.filter(p => {
+        if (filterActive === 'all') return true;
+        if (filterActive === 'active') return p.isActive;
+        return !p.isActive;
+    })
+
+    const paginatedPlayers = filteredPlayers.slice((currentPage - 1) * pageSize, currentPage * pageSize)
+
     return (
         <div>
             <div className="flex justify-between items-center mb-6">
                 <h1 className="text-3xl font-bold text-slate-900">球员管理</h1>
-                <button
-                    onClick={() => handleOpen()}
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg flex items-center gap-2"
-                >
-                    <Plus className="w-5 h-5" /> 新增球员
-                </button>
+                <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2">
+                        <select
+                            value={filterActive}
+                            onChange={(e) => setFilterActive(e.target.value as 'all' | 'active' | 'inactive')}
+                            className="bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-700 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+                        >
+                            <option value="active">活跃成员</option>
+                            <option value="all">全员</option>
+                            <option value="inactive">隐出休眠状态</option>
+                        </select>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <label className="text-sm font-medium text-slate-600">考绩筛选:</label>
+                        <select
+                            value={currentYear || new Date().getFullYear().toString()}
+                            onChange={(e) => {
+                                const y = e.target.value
+                                router.push(`/players${y === 'ALL' ? '?year=ALL' : `?year=${y}`}`)
+                            }}
+                            className="bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-700 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+                        >
+                            <option value="ALL">全部</option>
+                            {[...Array(5).keys()].map(i => {
+                                const year = (new Date().getFullYear() - i).toString();
+                                return <option key={year} value={year}>{year}年</option>
+                            })}
+                        </select>
+                    </div>
+                    <button
+                        onClick={() => handleOpen()}
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg flex items-center gap-2"
+                    >
+                        <Plus className="w-5 h-5" /> 新增球员
+                    </button>
+                </div>
             </div>
 
             <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
                 <table className="w-full text-left text-sm text-slate-600">
                     <thead className="bg-slate-50 text-slate-700 border-b border-slate-200">
                         <tr>
+                            <th className="px-6 py-4 font-medium min-w-[60px]">序号</th>
+                            <th className="px-6 py-4 font-medium text-center">号码</th>
                             <th className="px-6 py-4 font-medium">球员</th>
-                            <th className="px-6 py-4 font-medium">入学年份 / 专业</th>
+                            <th className="px-6 py-4 font-medium">入学年份 / 学院专业</th>
                             <th className="px-6 py-4 font-medium">个人账户结余</th>
-                            <th className="px-6 py-4 font-medium">出勤率</th>
+                            <th className="px-6 py-4 font-medium text-center whitespace-nowrap">{currentYear === 'ALL' ? '生涯累计' : `${currentYear || new Date().getFullYear()}年`}<br />出勤率</th>
+                            <th className="px-6 py-4 font-medium text-center whitespace-nowrap">{currentYear === 'ALL' ? '生涯累计' : `${currentYear || new Date().getFullYear()}年`}<br />出勤次数</th>
+                            <th className="px-6 py-4 font-medium text-center whitespace-nowrap">{currentYear === 'ALL' ? '生涯累计' : `${currentYear || new Date().getFullYear()}年`}<br />进球数</th>
+                            <th className="px-6 py-4 font-medium text-center whitespace-nowrap">{currentYear === 'ALL' ? '生涯累计' : `${currentYear || new Date().getFullYear()}年`}<br />助攻数</th>
                             <th className="px-6 py-4 font-medium text-right">操作</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                        {initialPlayers.map(player => (
+                        {paginatedPlayers.map((player, index) => (
                             <tr key={player.id} className="hover:bg-slate-50">
+                                <td className="px-6 py-4 text-slate-400 font-medium">
+                                    {(currentPage - 1) * pageSize + index + 1}
+                                </td>
+                                <td className="px-6 py-4 text-center">
+                                    <div className="text-lg font-bold text-slate-700">
+                                        {player.jerseyNumber || '-'}
+                                    </div>
+                                </td>
                                 <td className="px-6 py-4">
                                     <div className="flex items-center gap-3">
-                                        {player.profilePhoto ? (
-                                            <img src={player.profilePhoto} alt="" className="w-10 h-10 rounded-full object-cover" />
-                                        ) : (
-                                            <div className="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center text-slate-500 font-bold">
-                                                {player.name[0]}
-                                            </div>
-                                        )}
+                                        <Link href={`/players/${player.id}`} className="shrink-0 transition-opacity hover:opacity-80">
+                                            {player.profilePhoto ? (
+                                                <img src={player.profilePhoto} alt="" className="w-10 h-10 rounded-full object-cover" />
+                                            ) : (
+                                                <div className="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center text-slate-500 font-bold">
+                                                    {player.name[0]}
+                                                </div>
+                                            )}
+                                        </Link>
                                         <div>
-                                            <div className="font-medium text-slate-900">{player.name}</div>
-                                            <div className="text-xs text-slate-500">{player.birthDate || '生日未知'}</div>
+                                            <Link href={`/players/${player.id}`} className="font-medium text-slate-900 hover:text-emerald-600 hover:underline">
+                                                {player.name}
+                                            </Link>
+                                            {player.isActive === false && (
+                                                <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-500 border border-slate-200">
+                                                    休长假
+                                                </span>
+                                            )}
+                                            {player.teamRole && (
+                                                <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-800 border border-amber-200">
+                                                    {player.teamRole}
+                                                </span>
+                                            )}
+                                            {player.isMember && (
+                                                <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-fuchsia-100 text-fuchsia-800 border border-fuchsia-200">
+                                                    会员
+                                                </span>
+                                            )}
+                                            <div className="text-xs text-slate-500 mt-0.5">
+                                                {player.positions && <span className="inline-block px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-600 border border-indigo-100">{player.positions.split(',').join('/')}</span>}
+                                            </div>
                                         </div>
                                     </div>
                                 </td>
                                 <td className="px-6 py-4">
-                                    <div>{player.enrollmentYear || '-'} 级</div>
+                                    <div className="text-slate-700">{player.enrollmentYear || '-'} 级</div>
                                     <div className="text-xs text-slate-500">{player.major || '-'}</div>
-                                    <div className="text-xs font-semibold text-indigo-500 mt-1">
-                                        {player.jerseyNumber ? `#${player.jerseyNumber} (${player.jerseySize || '未知尺码'})` : '-'}
-                                    </div>
                                 </td>
                                 <td className="px-6 py-4">
                                     <span className={player.personalBalance < 0 ? 'text-red-500 font-semibold' : 'text-slate-900'}>
                                         ¥{player.personalBalance.toFixed(2)}
                                     </span>
                                 </td>
-                                <td className="px-6 py-4">
-                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">
+                                <td className="px-6 py-4 text-center">
+                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
                                         {player.attendanceRate || '0%'}
                                     </span>
+                                </td>
+                                <td className="px-6 py-4 text-center font-semibold text-slate-600">
+                                    {player.yearlyAppearances || 0}
+                                </td>
+                                <td className="px-6 py-4 text-center font-bold text-amber-600">
+                                    {player.yearlyGoals || 0}
+                                </td>
+                                <td className="px-6 py-4 text-center font-bold text-blue-600">
+                                    {player.yearlyAssists || 0}
                                 </td>
                                 <td className="px-6 py-4 text-right">
                                     <button onClick={() => handleOpen(player)} className="text-blue-600 hover:text-blue-800 p-2">
@@ -125,24 +219,43 @@ export function PlayerClient({ initialPlayers }: { initialPlayers: Player[] }) {
                             </tr>
                         )}
                     </tbody>
-                </table>
-            </div>
+                </table >
+                <Pagination
+                    currentPage={currentPage}
+                    pageSize={pageSize}
+                    totalItems={filteredPlayers.length}
+                    onPageChange={setCurrentPage}
+                    onPageSizeChange={(size) => {
+                        setPageSize(size)
+                        setCurrentPage(1)
+                    }}
+                />
+            </div >
 
             {isOpen && (
                 <PlayerFormModal
                     player={editingPlayer}
                     onClose={() => setIsOpen(false)}
                 />
-            )}
-        </div>
+            )
+            }
+        </div >
     )
 }
 
 function PlayerFormModal({ player, onClose }: { player: Player | null, onClose: () => void }) {
     const [loading, setLoading] = useState(false)
     const [photo, setPhoto] = useState<File | null>(null)
-    const [suzhouProof, setSuzhouProof] = useState<File | null>(null)
-    const [educationProof, setEducationProof] = useState<File | null>(null)
+    const [selectedPositions, setSelectedPositions] = useState<Set<string>>(
+        new Set(player?.positions ? player.positions.split(',') : [])
+    )
+
+    const togglePosition = (pos: string) => {
+        const next = new Set(selectedPositions)
+        if (next.has(pos)) next.delete(pos)
+        else next.add(pos)
+        setSelectedPositions(next)
+    }
 
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault()
@@ -151,38 +264,33 @@ function PlayerFormModal({ player, onClose }: { player: Player | null, onClose: 
             const formData = new FormData(e.currentTarget)
 
             let profileUrl = player?.profilePhoto || null
-            let suzhouUrl = player?.suzhouProofUrl || null
-            let eduUrl = player?.educationProofUrl || null
 
             if (photo) {
-                const pData = new FormData(); pData.append('file', photo)
-                profileUrl = await uploadFile(pData) || profileUrl
-            }
-            if (suzhouProof) {
-                const sData = new FormData(); sData.append('file', suzhouProof)
-                suzhouUrl = await uploadFile(sData) || suzhouUrl
-            }
-            if (educationProof) {
-                const eData = new FormData(); eData.append('file', educationProof)
-                eduUrl = await uploadFile(eData) || eduUrl
+                profileUrl = await uploadToStorage(photo) || profileUrl
             }
 
-            await savePlayer({
-                id: player?.id,
+            const playerInput: PlayerInput = {
+                id: player?.id, // Only include id if editing an existing player
                 name: formData.get('name') as string,
-                birthDate: formData.get('birthDate') as string,
-                enrollmentYear: formData.get('enrollmentYear') as string,
-                major: formData.get('major') as string,
-                jerseyNumber: formData.get('jerseyNumber') as string,
-                jerseySize: formData.get('jerseySize') as string,
-                profilePhoto: profileUrl as string,
-                suzhouProofType: formData.get('suzhouProofType') as string,
-                suzhouProofUrl: suzhouUrl as string,
-                educationProofType: formData.get('educationProofType') as string,
-                educationProofUrl: eduUrl as string,
-            })
+                birthDate: formData.get('birthDate') as string || null,
+                enrollmentYear: formData.get('enrollmentYear') as string || null,
+                major: formData.get('major') as string || null,
+                jerseyNumber: formData.get('jerseyNumber') as string || null,
+                jerseySize: formData.get('jerseySize') as string || null,
+                profilePhoto: profileUrl,
+                suzhouProofType: player?.suzhouProofType || null,
+                suzhouProofUrl: player?.suzhouProofUrl || null,
+                educationProofType: player?.educationProofType || null,
+                educationProofUrl: player?.educationProofUrl || null,
+                positions: selectedPositions.size > 0 ? Array.from(selectedPositions).join(',') : null,
+                teamRole: formData.get('teamRole') as string || null,
+                isActive: formData.get('isActive') === 'false' ? false : true,
+                isMember: formData.get('isMember') === 'true',
+            }
 
-            onClose()
+            await savePlayer(playerInput)
+            onClose() // Close modal on success
+
         } catch (e) {
             console.error(e)
             alert('保存失败')
@@ -205,17 +313,43 @@ function PlayerFormModal({ player, onClose }: { player: Player | null, onClose: 
                             <input name="name" defaultValue={player?.name} required className="w-full rounded-md border border-slate-300 px-3 py-2 text-slate-900 focus:outline-emerald-500" />
                         </div>
                         <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">队内职务</label>
+                            <select name="teamRole" defaultValue={player?.teamRole || ''} className="w-full rounded-md border border-slate-300 px-3 py-2 bg-white text-slate-900 focus:outline-emerald-500">
+                                <option value="">-- 无职务 --</option>
+                                <option value="队长">队长</option>
+                                <option value="副队长">副队长</option>
+                                <option value="领队">领队</option>
+                                <option value="教练">教练</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">活跃状态</label>
+                            <select name="isActive" defaultValue={player?.isActive === false ? 'false' : 'true'} className="w-full rounded-md border border-slate-300 px-3 py-2 bg-white text-slate-900 focus:outline-emerald-500">
+                                <option value="true">活跃 (参与活动)</option>
+                                <option value="false">隐退 (休假中)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">是否正式会员</label>
+                            <select name="isMember" defaultValue={player?.isMember ? 'true' : 'false'} className="w-full rounded-md border border-slate-300 px-3 py-2 bg-white text-slate-900 focus:outline-emerald-500">
+                                <option value="true">是 (享有会员池贴补)</option>
+                                <option value="false">否 (普通编外人员)</option>
+                            </select>
+                        </div>
+                        <div>
                             <label className="block text-sm font-medium text-slate-700 mb-1">出生年月 (YYYY-MM)</label>
                             <input name="birthDate" defaultValue={player?.birthDate || ''} type="month" className="w-full rounded-md border border-slate-300 px-3 py-2 text-slate-900 focus:outline-emerald-500" />
                         </div>
+
                         <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">入学年份</label>
-                            <input name="enrollmentYear" defaultValue={player?.enrollmentYear || ''} type="number" className="w-full rounded-md border border-slate-300 px-3 py-2 text-slate-900 focus:outline-emerald-500" />
+                            <label className="block text-sm font-medium text-slate-700 mb-1">入学年份 (YYYY)</label>
+                            <input name="enrollmentYear" defaultValue={player?.enrollmentYear || ''} placeholder="例如: 2010" className="w-full rounded-md border border-slate-300 px-3 py-2 text-slate-900 focus:outline-emerald-500" />
                         </div>
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">专业</label>
-                            <input name="major" defaultValue={player?.major || ''} className="w-full rounded-md border border-slate-300 px-3 py-2 text-slate-900 focus:outline-emerald-500" />
+                        <div className="col-span-2">
+                            <label className="block text-sm font-medium text-slate-700 mb-1">学院及专业</label>
+                            <input name="major" defaultValue={player?.major || ''} placeholder="例如: 机械工程学院 机械制造" className="w-full rounded-md border border-slate-300 px-3 py-2 text-slate-900 focus:outline-emerald-500" />
                         </div>
+
                         <div>
                             <label className="block text-sm font-medium text-slate-700 mb-1">球衣号码</label>
                             <input name="jerseyNumber" defaultValue={player?.jerseyNumber || ''} placeholder="例如: 10" className="w-full rounded-md border border-slate-300 px-3 py-2 text-slate-900 focus:outline-emerald-500" />
@@ -235,6 +369,25 @@ function PlayerFormModal({ player, onClose }: { player: Player | null, onClose: 
                         </div>
                     </div>
 
+                    <div className="space-y-2 pt-4 border-t border-slate-100">
+                        <label className="block text-sm font-medium text-slate-700">场上位置 (可多选)</label>
+                        <div className="flex flex-wrap gap-2">
+                            {['前锋', '中场', '左边前', '右边前', '中后卫', '边后卫', '守门员'].map(pos => (
+                                <button
+                                    key={pos}
+                                    type="button"
+                                    onClick={() => togglePosition(pos)}
+                                    className={`px-3 py-1.5 text-xs font-medium rounded-full transition-colors border ${selectedPositions.has(pos)
+                                        ? 'bg-indigo-50 border-indigo-200 text-indigo-700 shadow-sm'
+                                        : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
+                                        }`}
+                                >
+                                    {pos}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
                     <div className="space-y-4 pt-4 border-t border-slate-100">
                         <div>
                             <label className="block text-sm font-medium text-slate-700 mb-1">球员照片</label>
@@ -244,30 +397,6 @@ function PlayerFormModal({ player, onClose }: { player: Player | null, onClose: 
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2 flex justify-between flex-col">
-                                <label className="block text-sm font-medium text-slate-700">在苏证明 (四选一)</label>
-                                <select name="suzhouProofType" defaultValue={player?.suzhouProofType || 'NONE'} className="w-full rounded-md border border-slate-300 px-3 py-2 text-slate-900">
-                                    <option value="NONE">暂无</option>
-                                    <option value="ID_CARD">苏州身份证</option>
-                                    <option value="RESIDENCE_PERMIT">苏州居住证</option>
-                                    <option value="SOCIAL_SECURITY">苏州社保</option>
-                                    <option value="PROPERTY">苏州房产</option>
-                                </select>
-                                <input type="file" accept="image/*" onChange={(e) => setSuzhouProof(e.target.files?.[0] || null)} className="text-xs w-full" />
-                            </div>
-
-                            <div className="space-y-2 flex justify-between flex-col">
-                                <label className="block text-sm font-medium text-slate-700">学历证明 (三选一)</label>
-                                <select name="educationProofType" defaultValue={player?.educationProofType || 'NONE'} className="w-full rounded-md border border-slate-300 px-3 py-2 text-slate-900">
-                                    <option value="NONE">暂无</option>
-                                    <option value="DIPLOMA">毕业证</option>
-                                    <option value="DEGREE">学位证照片</option>
-                                    <option value="MBA">MBA学生证</option>
-                                </select>
-                                <input type="file" accept="image/*" onChange={(e) => setEducationProof(e.target.files?.[0] || null)} className="text-xs w-full" />
-                            </div>
-                        </div>
                     </div>
 
                     <div className="pt-6 flex justify-end gap-3">

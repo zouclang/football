@@ -1,6 +1,13 @@
 import { PrismaClient } from '@prisma/client'
+import { PrismaD1 } from '@prisma/adapter-d1'
 
 const prismaClientSingleton = () => {
+  // 在 Cloudflare 边缘环境且 D1 绑定可用时使用 D1 适配器
+  if (process.env.DB && typeof process.env.DB !== 'undefined') {
+    const adapter = new PrismaD1(process.env.DB as any)
+    return new PrismaClient({ adapter })
+  }
+  // 本地开发或 Node.js 环境回退至标准驱动（读取 .env / URL）
   return new PrismaClient()
 }
 

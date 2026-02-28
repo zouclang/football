@@ -5,10 +5,17 @@ import { Upload, Save } from 'lucide-react'
 import { updateTeamInfo, type TeamInfoInput } from '@/lib/actions/team'
 import { uploadFile } from '@/lib/actions/upload'
 
-export function TeamClient({ initialData }: { initialData: any }) {
+export function TeamClient({ initialData, players = [] }: { initialData: any, players?: any[] }) {
     const [loading, setLoading] = useState(false)
     const [foundationDate, setFoundationDate] = useState(initialData.foundationDate || '')
 
+    // Leadership
+    const [captainId, setCaptainId] = useState(initialData.captainId || '')
+    const [leaderMode, setLeaderMode] = useState<'PLAYER' | 'NON_PLAYER'>(initialData.leaderId ? 'PLAYER' : 'NON_PLAYER')
+    const [leaderId, setLeaderId] = useState(initialData.leaderId || '')
+    const [leaderName, setLeaderName] = useState(initialData.leaderName || '')
+
+    // Photos
     const [groupPhoto, setGroupPhoto] = useState<File | null>(null)
     const [newHighlights, setNewHighlights] = useState<FileList | null>(null)
 
@@ -39,7 +46,10 @@ export function TeamClient({ initialData }: { initialData: any }) {
             await updateTeamInfo({
                 foundationDate,
                 groupPhotoUrl: groupUrl,
-                highlightPhotos: JSON.stringify(allHighlights)
+                highlightPhotos: JSON.stringify(allHighlights),
+                captainId: captainId || null,
+                leaderId: leaderMode === 'PLAYER' ? (leaderId || null) : null,
+                leaderName: leaderMode === 'NON_PLAYER' ? (leaderName || null) : null,
             })
 
             setGroupPhoto(null)
@@ -74,19 +84,82 @@ export function TeamClient({ initialData }: { initialData: any }) {
                 </button>
             </div>
 
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 space-y-6">
-                <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">建队时间</label>
-                    <input
-                        type="date"
-                        value={foundationDate}
-                        onChange={e => setFoundationDate(e.target.value)}
-                        className="rounded-md border border-slate-300 px-3 py-2 w-64 focus:outline-emerald-500"
-                    />
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 space-y-8">
+                {/* 基本与人员信息 */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-2">建队时间</label>
+                        <input
+                            type="date"
+                            value={foundationDate}
+                            onChange={e => setFoundationDate(e.target.value)}
+                            className="w-full rounded-md border border-slate-300 px-3 py-2 focus:outline-emerald-500"
+                        />
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-2">球队队长 (从队员中选择)</label>
+                        <select
+                            value={captainId}
+                            onChange={e => setCaptainId(e.target.value)}
+                            className="w-full rounded-md border border-slate-300 px-3 py-2 focus:outline-emerald-500 bg-white"
+                        >
+                            <option value="">-- 请选择队长 --</option>
+                            {players.map(p => (
+                                <option key={p.id} value={p.id}>{p.name}</option>
+                            ))}
+                        </select>
+                    </div>
+
+                    <div className="md:col-span-2 p-4 bg-slate-50 border border-slate-100 rounded-lg">
+                        <label className="block text-sm font-medium text-slate-700 mb-3">领队设置</label>
+                        <div className="flex items-center gap-6 mb-4">
+                            <label className="flex items-center gap-2 cursor-pointer">
+                                <input
+                                    type="radio"
+                                    name="leaderMode"
+                                    checked={leaderMode === 'PLAYER'}
+                                    onChange={() => setLeaderMode('PLAYER')}
+                                    className="text-emerald-600 focus:ring-emerald-500"
+                                />
+                                <span className="text-sm">选拔现有队员</span>
+                            </label>
+                            <label className="flex items-center gap-2 cursor-pointer">
+                                <input
+                                    type="radio"
+                                    name="leaderMode"
+                                    checked={leaderMode === 'NON_PLAYER'}
+                                    onChange={() => setLeaderMode('NON_PLAYER')}
+                                    className="text-emerald-600 focus:ring-emerald-500"
+                                />
+                                <span className="text-sm">外聘/非队员录入</span>
+                            </label>
+                        </div>
+
+                        {leaderMode === 'PLAYER' ? (
+                            <select
+                                value={leaderId}
+                                onChange={e => setLeaderId(e.target.value)}
+                                className="w-full md:w-1/2 rounded-md border border-slate-300 px-3 py-2 focus:outline-emerald-500 bg-white"
+                            >
+                                <option value="">-- 请选择领队队员 --</option>
+                                {players.map(p => (
+                                    <option key={p.id} value={p.id}>{p.name}</option>
+                                ))}
+                            </select>
+                        ) : (
+                            <input
+                                type="text"
+                                placeholder="请输入外聘领队姓名"
+                                value={leaderName}
+                                onChange={e => setLeaderName(e.target.value)}
+                                className="w-full md:w-1/2 rounded-md border border-slate-300 px-3 py-2 focus:outline-emerald-500"
+                            />
+                        )}
+                    </div>
                 </div>
 
                 <div className="pt-6 border-t border-slate-100">
-                    {/* #4: 修正文字错误，"主卧"→"主页" */}
                     <label className="block text-sm font-medium text-slate-700 mb-2">球队主页/合影</label>
                     {initialData.groupPhotoUrl && !groupPhoto && (
                         <img src={initialData.groupPhotoUrl} alt="Team Group" className="w-full h-64 object-cover rounded-lg mb-4" />
