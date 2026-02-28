@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { Upload, Save } from 'lucide-react'
 import { updateTeamInfo, type TeamInfoInput } from '@/lib/actions/team'
-import { uploadFile } from '@/lib/actions/upload'
+import { uploadToStorage } from '@/lib/actions/storage'
 
 export function TeamClient({ initialData, players = [] }: { initialData: any, players?: any[] }) {
     const [loading, setLoading] = useState(false)
@@ -26,17 +26,13 @@ export function TeamClient({ initialData, players = [] }: { initialData: any, pl
         try {
             let groupUrl = initialData.groupPhotoUrl
             if (groupPhoto) {
-                const formData = new FormData()
-                formData.append('file', groupPhoto)
-                groupUrl = await uploadFile(formData) || groupUrl
+                groupUrl = await uploadToStorage(groupPhoto) || groupUrl
             }
 
             const addedHighlightUrls: string[] = []
             if (newHighlights) {
                 for (let i = 0; i < newHighlights.length; i++) {
-                    const formData = new FormData()
-                    formData.append('file', newHighlights[i])
-                    const url = await uploadFile(formData)
+                    const url = await uploadToStorage(newHighlights[i])
                     if (url) addedHighlightUrls.push(url)
                 }
             }

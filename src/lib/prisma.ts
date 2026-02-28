@@ -8,7 +8,21 @@ const prismaClientSingleton = () => {
     // 使用 as any 规避某些环境下 DriverAdapter 接口定义的微小不一致报错
     return new PrismaClient({ adapter: adapter as any })
   }
-  // 本地开发或 Node.js 环境回退至标准驱动（读取 .env / URL）
+
+  // 特殊处理：如果处于 Edge Runtime 环境但没有 DB 绑定（通常是 Next.js 构建阶段的预渲染）
+  // 此时绝对不能初始化标准的 PrismaClient (它会尝试加载 Node.js 原生驱动并导致崩溃)
+  // 我们返回一个空适配器的客户端，因为构建阶段我们不需要真实数据
+  if (typeof (globalThis as any).EdgeRuntime === 'string') {
+    return new PrismaClient({
+      adapter: {
+        queryRaw: async () => [],
+        executeRaw: async () => 0,
+        provider: 'sqlite',
+      } as any
+    })
+  }
+
+  // 真正的本地开发环境 (Node.js)
   return new PrismaClient()
 }
 
