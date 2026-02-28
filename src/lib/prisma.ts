@@ -2,33 +2,38 @@ import { PrismaClient } from '@prisma/client'
 import { PrismaD1 } from '@prisma/adapter-d1'
 
 const prismaClientSingleton = () => {
-  // 在 Cloudflare 边缘环境且 D1 绑定可用时使用 D1 适配器
-  if (process.env.DB && typeof process.env.DB !== 'undefined') {
-    const adapter = new PrismaD1(process.env.DB as any)
-    // 使用 as any 规避某些环境下 DriverAdapter 接口定义的微小不一致报错
-    return new PrismaClient({ adapter: adapter as any })
+  // 1. 生产环境：尝试从环境变量获取 D1 绑定 (Cloudflare Pages 环境)
+  const db = (process.env as any).DB
+  if (db) {
+    try {
+      const adapter = new PrismaD1(db)
+      return new PrismaClient({ adapter: adapter as any })
+    } catch (e) {
+      console.error('Failed to init D1 adapter:', e)
+    }
   }
 
-  // 特殊处理：如果处于 Edge Runtime 环境但没有 DB 绑定（通常是 Next.js 构建阶段的预渲染）
-  // 此时绝对不能初始化标准的 PrismaClient (它会尝试加载 Node.js 原生驱动并导致崩溃)
-  // 我们返回一个空适配器的客户端，因为构建阶段我们不需要真实数据
+  // 2. 边缘环境回退（处理 Next.js 构建阶段的预渲染/静态收集）
+  // 使用 Proxy 确保所有被调用的方法都返回 Mock 数据，且不会因 missing bind 而崩溃
   if (typeof (globalThis as any).EdgeRuntime === 'string') {
-    return new PrismaClient({
-      adapter: {
-        queryRaw: async () => ({ columnNames: [], columnTypes: [], rows: [] }),
-        executeRaw: async () => 0,
-        transactionContext: async () => ({
-          queryRaw: async () => ({ columnNames: [], columnTypes: [], rows: [] }),
+    const mockResultSet = { columnNames: [], columnTypes: [], rows: [] };
+    const mockAdapter = new Proxy({}, {
+      get: (target, prop) => {
+        if (prop === 'provider') return 'sqlite'
+        if (prop === 'adapterName') return 'mock'
+        if (prop === 'transactionContext') return async () => ({
+          queryRaw: async () => mockResultSet,
           executeRaw: async () => 0,
           commit: async () => { },
           rollback: async () => { },
-        }),
-        provider: 'sqlite',
-      } as any
+        })
+        return async () => mockResultSet
+      }
     })
+    return new PrismaClient({ adapter: mockAdapter as any })
   }
 
-  // 真正的本地开发环境 (Node.js)
+  // 3. 本地 Node.js 环境回退至标准驱动 (读取 .env / DATABASE_URL)
   return new PrismaClient()
 }
 
