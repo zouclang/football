@@ -9,7 +9,6 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "better-sqlite3": "^12.6.2",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
     "lucide-react": "^0.575.0",
@@ -24,7 +23,6 @@
     "@prisma/client": "^5.22.0",
     "@prisma/engines": "^5.22.0",
     "@tailwindcss/postcss": "^4",
-    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
