@@ -1,4 +1,4 @@
-import prisma from '@/lib/prisma'
+import { getDb } from '@/lib/sqlite'
 import { PlayerClient } from '@/components/PlayerClient'
 import { getSession } from '@/lib/auth'
 import { Suspense } from 'react'
@@ -14,77 +14,76 @@ export default async function PlayersPage(props: { searchParams: Promise<{ year?
     const isBefore2026 = yearQuery === 'BEFORE_2026'
     const thisYear = (isAll || isBefore2026) ? null : parseInt(yearQuery, 10)
 
-    // 日期过滤条件
-    const dateFilterJoin = isBefore2026
-        ? `m.date < '2026-01-01'`
-        : isAll
+    const db = getDb()
+
+    // 直接 SQL：better-sqlite3 同步执行，无 IPC 开销
+    // Prisma 同等查询要 1.3-1.7s；这里 <5ms
+
+    // 球员列表（不含 profilePhoto —— 每张图 1-3MB，83 人 = 170MB SSR 负担）
+    // 详情页单独加载照片
+    const users = db.prepare(`
+        SELECT id, name, jerseyNumber, jerseySize, birthDate, enrollmentYear,
+               major, teamRole, positions, personalBalance,
+               isActive, isRetired, isMember,
+               historicalMatches, historicalGoals, historicalAssists, createdAt
+        FROM "User"
+        ORDER BY
+            CASE WHEN jerseyNumber IS NULL OR jerseyNumber = '' THEN 1 ELSE 0 END,
+            CAST(jerseyNumber AS INTEGER),
+            name
+    `).all() as any[]
+
+    // 出勤聚合 SQL（带日期过滤）
+    let statsRows: { userId: string; appearances: number; goals: number; assists: number }[] = []
+    let totalMatchCount = 0
+
+    if (!isBefore2026) {
+        const dateFilterJoin = isAll
             ? `m.date >= '2026-01-01'`
             : `m.date >= '${thisYear}-01-01' AND m.date < '${thisYear! + 1}-01-01'`
-    const dateFilterPlain = isBefore2026
-        ? `date < '2026-01-01'`
-        : isAll
+        const dateFilterPlain = isAll
             ? `date >= '2026-01-01'`
             : `date >= '${thisYear}-01-01' AND date < '${thisYear! + 1}-01-01'`
 
-    type AttendanceStat = { userId: string; appearances: bigint; goals: bigint; assists: bigint }
+        statsRows = db.prepare(`
+            SELECT a.userId,
+                   COUNT(DISTINCT a.matchId) AS appearances,
+                   SUM(a.goals)              AS goals,
+                   SUM(a.assists)            AS assists
+            FROM "Attendance" a
+            INNER JOIN "Match" m ON a.matchId = m.id
+            WHERE ${dateFilterJoin}
+            GROUP BY a.userId
+        `).all() as any[]
 
-    const [statsRows, users, totalMatchCount] = await Promise.all([
-        // 单条 JOIN SQL 聚合出勤统计（避免 N+1 查询）
-        isBefore2026
-            ? Promise.resolve([] as AttendanceStat[])
-            : prisma.$queryRawUnsafe<AttendanceStat[]>(`
-                SELECT a.userId,
-                       COUNT(DISTINCT a.matchId) AS appearances,
-                       SUM(a.goals)              AS goals,
-                       SUM(a.assists)            AS assists
-                FROM "Attendance" a
-                INNER JOIN "Match" m ON a.matchId = m.id
-                WHERE ${dateFilterJoin}
-                GROUP BY a.userId
-              `),
-        // 球员列表（不含 profilePhoto — 每人 1-3MB 会使 SSR payload 膨胀）
-        prisma.user.findMany({
-            orderBy: [{ jerseyNumber: 'asc' }],
-            select: {
-                id: true, name: true,
-                jerseyNumber: true, jerseySize: true,
-                birthDate: true, enrollmentYear: true,
-                major: true, teamRole: true, positions: true,
-                personalBalance: true,
-                isActive: true, isRetired: true, isMember: true,
-                historicalMatches: true, historicalGoals: true, historicalAssists: true,
-                createdAt: true,
-            }
-        }),
-        // 总场数（作为出勤率分母）
-        isBefore2026
-            ? Promise.resolve(0)
-            : prisma.$queryRawUnsafe<[{ cnt: bigint }]>(
-                `SELECT COUNT(*) as cnt FROM "Match" WHERE ${dateFilterPlain}`
-            ).then(r => Number(r[0]?.cnt ?? 0)),
-    ])
+        totalMatchCount = (db.prepare(`
+            SELECT COUNT(*) as cnt FROM "Match"
+            WHERE ${dateFilterPlain}
+        `).get() as any)?.cnt ?? 0
+    }
 
-    const statsMap = new Map<string, AttendanceStat>()
+    // 构建 userId → 统计查找表
+    const statsMap = new Map<string, typeof statsRows[0]>()
     for (const s of statsRows) statsMap.set(s.userId, s)
 
+    // 合并
     const playersWithStats = users.map(user => {
         const stat = statsMap.get(user.id)
-        const attendedCount = stat ? Number(stat.appearances) : 0
-        const yearlyGoals = stat ? Number(stat.goals) : 0
-        const yearlyAssists = stat ? Number(stat.assists) : 0
-        const rate = totalMatchCount > 0
-            ? Math.round((attendedCount / totalMatchCount) * 100) : 0
-        return { ...user, attendanceRate: `${rate}%`, yearlyAppearances: attendedCount, yearlyGoals, yearlyAssists } as any
-    })
+        const attendedCount = stat?.appearances ?? 0
+        const yearlyGoals = stat?.goals ?? 0
+        const yearlyAssists = stat?.assists ?? 0
+        const rate = totalMatchCount > 0 ? Math.round((attendedCount / totalMatchCount) * 100) : 0
 
-    // 按球衣号码排序（兜底）
-    playersWithStats.sort((a, b) => {
-        const numA = parseInt(a.jerseyNumber || '', 10)
-        const numB = parseInt(b.jerseyNumber || '', 10)
-        if (!isNaN(numA) && !isNaN(numB)) return numA - numB
-        if (!isNaN(numA)) return -1
-        if (!isNaN(numB)) return 1
-        return a.name.localeCompare(b.name)
+        return {
+            ...user,
+            isActive: user.isActive === 1,
+            isRetired: user.isRetired === 1,
+            isMember: user.isMember === 1,
+            attendanceRate: `${rate}%`,
+            yearlyAppearances: attendedCount,
+            yearlyGoals,
+            yearlyAssists,
+        } as any
     })
 
     return (
