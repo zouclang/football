@@ -1,9 +1,10 @@
 "use client"
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Plus, Edit2, Trash2, X, Search, Filter } from 'lucide-react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { saveMatch, deleteMatch, getLeagueNames } from '@/lib/actions/match'
+import { getTournamentPlayers } from '@/lib/actions/tournament'
 import { format } from 'date-fns'
 import { Pagination } from './Pagination'
 
@@ -18,6 +19,9 @@ type PlayerData = {
 
 type MatchClientProps = {
     initialMatches: any[]
+    totalCount: number
+    currentPage: number
+    pageSize: number
     players: PlayerData[]
     unfinishedTournaments: any[]
     filterTournamentName?: string
@@ -26,7 +30,7 @@ type MatchClientProps = {
     role: 'admin' | 'player'
 }
 
-export function MatchClient({ initialMatches, players, unfinishedTournaments, filterTournamentName, autoEditMatchId, allTournaments, role }: MatchClientProps) {
+export function MatchClient({ initialMatches, totalCount, currentPage, pageSize, players, unfinishedTournaments, filterTournamentName, autoEditMatchId, allTournaments, role }: MatchClientProps) {
     const router = useRouter()
     const searchParams = useSearchParams()
 
@@ -41,8 +45,15 @@ export function MatchClient({ initialMatches, players, unfinishedTournaments, fi
     const [deletingId, setDeletingId] = useState<string | null>(null)
     const availablePlayers = players.filter(p => !p.isRetired)
 
-    const [currentPage, setCurrentPage] = useState(1)
-    const [pageSize, setPageSize] = useState(10)
+    // 翻页使用 URL 驱动（服务端分页）
+    const pushParams = (updates: Record<string, string | null>) => {
+        const params = new URLSearchParams(searchParams.toString())
+        for (const [k, v] of Object.entries(updates)) {
+            if (v === null) params.delete(k)
+            else params.set(k, v)
+        }
+        router.push(`/matches?${params.toString()}`)
+    }
 
     useEffect(() => {
         if (autoEditMatchId) {
@@ -87,7 +98,8 @@ export function MatchClient({ initialMatches, players, unfinishedTournaments, fi
         return null
     }
 
-    const paginatedMatches = initialMatches.slice((currentPage - 1) * pageSize, currentPage * pageSize)
+    // 服务端已分页，initialMatches 已经是当前页的数据
+    const paginatedMatches = initialMatches
 
     return (
         <div>
@@ -260,12 +272,9 @@ export function MatchClient({ initialMatches, players, unfinishedTournaments, fi
                 <Pagination
                     currentPage={currentPage}
                     pageSize={pageSize}
-                    totalItems={initialMatches.length}
-                    onPageChange={setCurrentPage}
-                    onPageSizeChange={(size) => {
-                        setPageSize(size)
-                        setCurrentPage(1)
-                    }}
+                    totalItems={totalCount}
+                    onPageChange={(p) => pushParams({ page: String(p) })}
+                    onPageSizeChange={(s) => pushParams({ page: '1', pageSize: String(s) })}
                     pageSizeOptions={[10, 20, 50, 100]}
                 />
             </div>
@@ -307,6 +316,18 @@ function MatchFormModal({ match, players, unfinishedTournaments, allTournaments,
     const [selectedType, setSelectedType] = useState<string>(match?.type || 'LEAGUE')
     const [tournamentId, setTournamentId] = useState<string>(match?.tournamentId || '')
     const [cost, setCost] = useState<string>(match?.cost?.toString() || '')
+    // 赛事球员白名单：延迟加载（不在页面初始化时拉取，节省 300ms）
+    const [tourneyPlayerIds, setTourneyPlayerIds] = useState<Set<string>>(new Set())
+    const [loadingTourneyPlayers, setLoadingTourneyPlayers] = useState(false)
+
+    // 当赛事 ID 变化时才拉一次球员白名单
+    useEffect(() => {
+        if (!tournamentId) { setTourneyPlayerIds(new Set()); return }
+        setLoadingTourneyPlayers(true)
+        getTournamentPlayers(tournamentId)
+            .then(ids => setTourneyPlayerIds(new Set(ids)))
+            .finally(() => setLoadingTourneyPlayers(false))
+    }, [tournamentId])
 
     const togglePlayer = (id: string) => {
         setSelectedPlayers(prev => {
@@ -386,13 +407,12 @@ function MatchFormModal({ match, players, unfinishedTournaments, allTournaments,
     }
 
     // 动态截断受保护的可展示人员名单
-    const activeTourney = unfinishedTournaments.find(t => t.id === tournamentId)
-    const tourneyPlayerIds = activeTourney ? new Set(activeTourney.players?.map((p: any) => p.id) || []) : new Set()
-
     let displayPlayers = players
     if (selectedType === 'LEAGUE') {
         if (tournamentId) {
-            displayPlayers = players.filter(p => tourneyPlayerIds.has(p.id))
+            displayPlayers = loadingTourneyPlayers
+                ? []  // 正在加载时不显示
+                : players.filter(p => tourneyPlayerIds.has(p.id))
         } else {
             // 没有选择赛事时不允许直接拉所有人员
             displayPlayers = []

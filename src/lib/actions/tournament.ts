@@ -19,13 +19,25 @@ export type TournamentInput = {
 export async function getTournaments() {
     return prisma.tournament.findMany({
         include: {
-            players: true
+            players: {
+                select: { id: true, name: true, jerseyNumber: true, isActive: true, isRetired: true }
+            }
         },
         orderBy: {
             createdAt: 'desc'
         }
     })
 }
+
+// 按需获取某个赛事的球员 ID 列表（仅在赛事考勤录入弹窗打开时调用）
+export async function getTournamentPlayers(tournamentId: string): Promise<string[]> {
+    const t = await prisma.tournament.findUnique({
+        where: { id: tournamentId },
+        select: { players: { select: { id: true } } }
+    })
+    return t?.players.map(p => p.id) ?? []
+}
+
 
 export async function saveTournament(data: TournamentInput) {
     try {

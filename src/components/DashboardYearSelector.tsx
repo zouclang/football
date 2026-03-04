@@ -1,6 +1,6 @@
 "use client"
 
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 
 export function DashboardYearSelector({ currentYear }: { currentYear: string }) {
     const router = useRouter()

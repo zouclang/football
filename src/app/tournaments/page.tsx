@@ -9,7 +9,10 @@ export default async function TournamentsPage() {
     const session = await getSession()
     const [tournaments, players] = await Promise.all([
         getTournaments(),
-        prisma.user.findMany({ orderBy: { name: 'asc' } })
+        prisma.user.findMany({
+            orderBy: { name: 'asc' },
+            select: { id: true, name: true, jerseyNumber: true, isActive: true, isRetired: true }
+        })
     ])
 
     return (

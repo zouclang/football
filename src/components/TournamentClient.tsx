@@ -7,13 +7,21 @@ import { saveTournament, deleteTournament } from '@/lib/actions/tournament'
 import { Pagination } from './Pagination'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import type { Tournament, User } from '@prisma/client'
+import type { Tournament } from '@prisma/client'
 
-type TournamentWithPlayers = Tournament & { players: User[] }
+type PlayerInfo = {
+    id: string
+    name: string
+    jerseyNumber: string | null
+    isActive: boolean
+    isRetired: boolean
+}
+
+type TournamentWithPlayers = Tournament & { players: PlayerInfo[] }
 
 type TournamentClientProps = {
     initialTournaments: TournamentWithPlayers[]
-    players: User[]
+    players: PlayerInfo[]
     role: 'admin' | 'player'
 }
 
@@ -163,7 +171,7 @@ export function TournamentClient({ initialTournaments, players, role }: Tourname
     )
 }
 
-function TournamentFormModal({ initialData, players, onClose }: { initialData: TournamentWithPlayers | null, players: User[], onClose: () => void }) {
+function TournamentFormModal({ initialData, players, onClose }: { initialData: TournamentWithPlayers | null, players: PlayerInfo[], onClose: () => void }) {
     const [loading, setLoading] = useState(false)
     const [showInactive, setShowInactive] = useState(false)
     const [selectedPlayerIds, setSelectedPlayerIds] = useState<Set<string>>(

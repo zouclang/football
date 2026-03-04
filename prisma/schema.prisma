@@ -69,6 +69,9 @@ model Match {
   updatedAt    DateTime     @updatedAt
   attendances  Attendance[]
   tournament   Tournament?  @relation(fields: [tournamentId], references: [id])
+
+  @@index([date])
+  @@index([tournamentId])
 }
 
 model Attendance {
@@ -83,6 +86,8 @@ model Attendance {
   user      User     @relation(fields: [userId], references: [id])
 
   @@unique([userId, matchId])
+  @@index([userId])
+  @@index([matchId])
 }
 
 model TeamFundTransaction {
@@ -107,6 +112,8 @@ model PersonalTransaction {
   createdAt      DateTime @default(now())
   diningRecordId String?
   user           User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
 }
 
 model DiningRecord {

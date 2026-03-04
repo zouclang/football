@@ -1,6 +1,7 @@
 import prisma from '@/lib/prisma'
 import { PlayerClient } from '@/components/PlayerClient'
 import { getSession } from '@/lib/auth'
+import { Suspense } from 'react'
 
 export const dynamic = 'force-dynamic'
 
@@ -13,103 +14,86 @@ export default async function PlayersPage(props: { searchParams: Promise<{ year?
     const isBefore2026 = yearQuery === 'BEFORE_2026'
     const thisYear = (isAll || isBefore2026) ? null : parseInt(yearQuery, 10)
 
-    const users = await prisma.user.findMany({
-        orderBy: { createdAt: 'desc' },
-        select: {
-            id: true,
-            name: true,
-            jerseyNumber: true,
-            jerseySize: true,
-            birthDate: true,
-            enrollmentYear: true,
-            major: true,
-            teamRole: true,
-            positions: true,
-            profilePhoto: true,
-            personalBalance: true,
-            isActive: true,
-            isRetired: true,
-            isMember: true,
-            historicalMatches: true,
-            historicalGoals: true,
-            historicalAssists: true,
-            createdAt: true,
-            // Only load attendances relevant to the requested year — avoids pulling all history
-            attendances: {
-                where: thisYear ? {
-                    match: {
-                        date: {
-                            gte: new Date(`${thisYear}-01-01T00:00:00.000Z`),
-                            lte: new Date(`${thisYear}-12-31T23:59:59.999Z`)
-                        }
-                    }
-                } : isAll ? {
-                    match: { date: { gte: new Date('2026-01-01T00:00:00.000Z') } }
-                } : undefined, // BEFORE_2026: no current-year attendances needed
-                select: {
-                    goals: true,
-                    assists: true,
-                    match: { select: { date: true } }
-                }
-            }
-        }
-    })
+    // 用一条 JOIN SQL 直接算出每个球员的出勤/进球/助攻
+    // 相比"先取所有 matchId，再用 IN 参数传入 aggregate SQL"，JOIN 更高效
+    const dateFilter = isBefore2026
+        ? `m.date < '2026-01-01'`
+        : isAll
+            ? `m.date >= '2026-01-01'`
+            : `m.date >= '${thisYear}-01-01' AND m.date <= '${thisYear}-12-31 23:59:59'`
 
-    const matchesCountThisYear = isBefore2026
-        ? 0
-        : await prisma.match.count({
-            where: isAll ? {
-                date: {
-                    gte: new Date(`2026-01-01T00:00:00.000Z`)
-                }
-            } : {
-                date: {
-                    gte: new Date(`${thisYear}-01-01T00:00:00.000Z`),
-                    lte: new Date(`${thisYear}-12-31T23:59:59.999Z`)
-                }
+    type AttendanceStat = { userId: string; appearances: bigint; goals: bigint; assists: bigint; matchCount: bigint }
+
+    const [statsRows, users] = await Promise.all([
+        // 单条 SQL：JOIN Match 过滤日期，GROUP BY userId 聚合
+        isBefore2026
+            ? Promise.resolve([] as AttendanceStat[])   // 2026前无需统计出勤
+            : prisma.$queryRawUnsafe<AttendanceStat[]>(`
+                SELECT a.userId,
+                       COUNT(DISTINCT a.matchId) AS appearances,
+                       SUM(a.goals)              AS goals,
+                       SUM(a.assists)            AS assists,
+                       COUNT(DISTINCT m.id)      AS matchCount
+                FROM "Attendance" a
+                INNER JOIN "Match" m ON a.matchId = m.id
+                WHERE ${dateFilter}
+                GROUP BY a.userId
+              `),
+        prisma.user.findMany({
+            orderBy: { jerseyNumber: 'asc' },
+            select: {
+                id: true, name: true,
+                jerseyNumber: true, jerseySize: true,
+                birthDate: true, enrollmentYear: true,
+                major: true, teamRole: true, positions: true,
+                profilePhoto: true, personalBalance: true,
+                isActive: true, isRetired: true, isMember: true,
+                historicalMatches: true, historicalGoals: true, historicalAssists: true,
+                createdAt: true,
             }
         })
+    ])
 
-    // Calculate this year's attendance rate and stats
+    // 需要独立查总比赛数（作为出勤率分母）
+    const totalMatchCount: number = isBefore2026 ? 0
+        : statsRows.length > 0
+            // matchCount 每行都是该用户参加场次，但总场次需单独查
+            ? await prisma.match.count({
+                where: isAll
+                    ? { date: { gte: new Date('2026-01-01') } }
+                    : { date: { gte: new Date(`${thisYear}-01-01`), lt: new Date(`${thisYear! + 1}-01-01`) } }
+            })
+            : 0
+
+    // 构建 userId → 统计的快速查找表
+    const statsMap = new Map<string, AttendanceStat>()
+    for (const s of statsRows) statsMap.set(s.userId, s)
+
+    // 合并统计到用户列表
     const playersWithStats = users.map(user => {
-        const targetAttendances = isAll
-            ? user.attendances.filter(a => a.match.date.getFullYear() >= 2026)
-            : isBefore2026
-                ? []
-                : user.attendances.filter(a => a.match.date.getFullYear() === thisYear)
-        const attendedCount = targetAttendances.length
+        const stat = statsMap.get(user.id)
+        const attendedCount = stat ? Number(stat.appearances) : 0
+        const yearlyGoals = stat ? Number(stat.goals) : 0
+        const yearlyAssists = stat ? Number(stat.assists) : 0
+        const rate = totalMatchCount > 0
+            ? Math.round((attendedCount / totalMatchCount) * 100) : 0
 
-        const rate = matchesCountThisYear > 0 ? Math.round((attendedCount / matchesCountThisYear) * 100) : 0
-        const yearlyGoals = targetAttendances.reduce((acc, a) => acc + (a.goals || 0), 0)
-        const yearlyAssists = targetAttendances.reduce((acc, a) => acc + (a.assists || 0), 0)
-
-        return {
-            ...user,
-            attendanceRate: `${rate}%`,
-            yearlyAppearances: attendedCount,
-            yearlyGoals,
-            yearlyAssists,
-            historicalMatches: (user as any).historicalMatches || 0,
-            historicalGoals: (user as any).historicalGoals || 0,
-            historicalAssists: (user as any).historicalAssists || 0
-        } as any
+        return { ...user, attendanceRate: `${rate}%`, yearlyAppearances: attendedCount, yearlyGoals, yearlyAssists } as any
     })
 
-    // Sort players by jersey number (ascending)
+    // 按球衣号码排序（已在DB侧排过，这里只处理无号码的兜底）
     playersWithStats.sort((a, b) => {
-        const parseA = parseInt(a.jerseyNumber || '', 10)
-        const parseB = parseInt(b.jerseyNumber || '', 10)
-        const numA = isNaN(parseA) ? 9999 : parseA
-        const numB = isNaN(parseB) ? 9999 : parseB
-
-        if (numA !== numB) {
-            return numA - numB
-        }
-        // Fallback to name or default sorting if numbers are equal/missing
+        const numA = parseInt(a.jerseyNumber || '', 10)
+        const numB = parseInt(b.jerseyNumber || '', 10)
+        if (!isNaN(numA) && !isNaN(numB)) return numA - numB
+        if (!isNaN(numA)) return -1
+        if (!isNaN(numB)) return 1
         return a.name.localeCompare(b.name)
     })
 
     return (
-        <PlayerClient initialPlayers={playersWithStats} currentYear={yearQuery} role={session?.role || 'player'} currentPlayerId={session?.playerId} />
+        <Suspense fallback={<div className="flex items-center justify-center h-64 text-slate-400 animate-pulse">加载中...</div>}>
+            <PlayerClient initialPlayers={playersWithStats} currentYear={yearQuery} role={session?.role || 'player'} currentPlayerId={session?.playerId} />
+        </Suspense>
     )
 }
