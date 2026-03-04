@@ -1,14 +1,16 @@
 services:
   football:
-    build: .
+    image: football-app:latest   # 使用本地构建好的镜像
     container_name: football-app
     ports:
       - "3000:3000"
     volumes:
-      - ./data:/app/data
-      - ./public/uploads:/app/public/uploads
-    restart: always
+      - ./data:/app/data                       # SQLite 数据库持久化
+      - ./public/uploads:/app/public/uploads   # 球员头像持久化
     environment:
       - DATABASE_URL=file:/app/data/dev.db
       - NODE_ENV=production
       - NEXT_TELEMETRY_DISABLED=1
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
+      - PLAYER_PASSWORD=${PLAYER_PASSWORD}
+    restart: unless-stopped
