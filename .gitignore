@@ -45,3 +45,10 @@ archive/
 *.nosync/
 .next/
 node_modules/
+
+# SQLite 数据库文件（含用户数据，体积大，不应入库）
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+/data/
