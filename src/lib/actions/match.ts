@@ -1,6 +1,7 @@
 "use server"
 
 import prisma from '../prisma'
+import { requireAdmin } from '../auth'
 import { revalidatePath } from 'next/cache'
 
 export type MatchInput = {
@@ -38,6 +39,7 @@ export async function getMatch(id: string) {
 }
 
 export async function saveMatch(data: MatchInput) {
+    await requireAdmin()
     const { id, date, opponent, type, leagueName, tournamentId, ourScore, theirScore, cost, result, attendances = [] } = data
     const parsedDate = new Date(date)
 
@@ -113,9 +115,12 @@ export async function saveMatch(data: MatchInput) {
                 }
             })
 
-            // === [新增] 检查会员费池是否被击穿（为负） ===
-            const allMemberTxs = await prisma.memberFundTransaction.findMany()
-            const currentBalance = allMemberTxs.reduce((sum, tx) => sum + (tx.type === 'INCOME' ? tx.totalAmount : -tx.totalAmount), 0)
+            // === 检查会员费池是否被击穿（为负）— 用聚合 SQL，避免全表扫描 ===
+            const balanceResult = await prisma.$queryRaw<[{ balance: number }]>`
+                SELECT SUM(CASE WHEN type = 'INCOME' THEN totalAmount ELSE -totalAmount END) as balance
+                FROM MemberFundTransaction
+            `
+            const currentBalance = balanceResult[0]?.balance ?? 0
 
             if (currentBalance < -0.01) {
                 const compensation = Math.abs(currentBalance)
@@ -158,6 +163,7 @@ export async function saveMatch(data: MatchInput) {
 }
 
 export async function deleteMatch(id: string) {
+    await requireAdmin()
     // 级连删除关联到本赛场的财务台账和出场名单
     await prisma.memberFundTransaction.deleteMany({
         where: { matchId: id }

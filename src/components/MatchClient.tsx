@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { Plus, Edit2, Trash2, X, Search, Filter } from 'lucide-react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { saveMatch, deleteMatch, getLeagueNames } from '@/lib/actions/match'

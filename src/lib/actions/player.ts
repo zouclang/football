@@ -1,6 +1,7 @@
 "use server"
 
 import prisma from '../prisma'
+import { requireAdmin } from '../auth'
 import { revalidatePath } from 'next/cache'
 
 export type PlayerInput = {
@@ -38,6 +39,7 @@ export async function getPlayer(id: string) {
 }
 
 export async function savePlayer(player: PlayerInput) {
+    await requireAdmin()
     try {
         if (player.id) {
             await prisma.user.update({
@@ -93,10 +95,13 @@ export async function savePlayer(player: PlayerInput) {
 }
 
 export async function deletePlayer(id: string) {
-    // #1: 先删关联子表，避免 SQLite 外键约束错误
-    await prisma.attendance.deleteMany({ where: { userId: id } })
-    await prisma.personalTransaction.deleteMany({ where: { userId: id } })
-    await prisma.user.delete({ where: { id } })
+    await requireAdmin()
+    await prisma.$transaction(async (tx) => {
+        await tx.attendance.deleteMany({ where: { userId: id } })
+        await tx.personalTransaction.deleteMany({ where: { userId: id } })
+        await tx.user.delete({ where: { id } })
+    })
     revalidatePath('/players')
-    revalidatePath('/') // #9: 首页展示球员人数，需一并刷新
+    revalidatePath('/')
 }
+

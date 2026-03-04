@@ -29,7 +29,8 @@ function getDbPath(): string {
 let _db: Database.Database | null = null
 
 export function getDb(): Database.Database {
-    if (!_db) {
+    // 检查 open 状态：若连接已关闭或崩溃则重新创建
+    if (!_db || !_db.open) {
         _db = new Database(getDbPath(), { readonly: true })
         // 性能优化：WAL + 内存缓存
         _db.pragma('journal_mode = WAL')

@@ -1,6 +1,7 @@
 "use server"
 
 import prisma from '../prisma'
+import { requireAdmin } from '../auth'
 import { revalidatePath } from 'next/cache'
 
 export type TeamFundInput = {
@@ -41,6 +42,7 @@ export async function getUniqueCategories(type: "INCOME" | "EXPENSE") {
 
 // ============== 赞助费操作 ==============
 export async function addTeamFundTransaction(data: TeamFundInput) {
+    await requireAdmin()
     await prisma.teamFundTransaction.create({
         data: {
             amount: data.amount,
@@ -56,6 +58,7 @@ export async function addTeamFundTransaction(data: TeamFundInput) {
 }
 
 export async function updateTeamFundTransaction(id: string, data: TeamFundInput) {
+    await requireAdmin()
     await prisma.teamFundTransaction.update({
         where: { id },
         data: {
@@ -72,6 +75,7 @@ export async function updateTeamFundTransaction(id: string, data: TeamFundInput)
 }
 
 export async function deleteTeamFundTransaction(id: string) {
+    await requireAdmin()
     const tx = await prisma.teamFundTransaction.findUnique({ where: { id } })
     if (!tx) return
 
@@ -97,34 +101,34 @@ export async function deleteTeamFundTransaction(id: string) {
 // ============== 个人账户操作 ==============
 // 原本是单个 addPersonalTransaction，现升级为批量 (多选支持)
 export async function addPersonalTransactions(data: Omit<PersonalFundInput, 'userId'> & { userIds: string[] }) {
+    await requireAdmin()
     const { userIds, amount, category, description, date } = data
     const txDate = date ? new Date(date) : new Date()
 
-    // 1. 创建多条流水
-    await prisma.personalTransaction.createMany({
-        data: userIds.map(userId => ({
-            userId,
-            amount: amount,
-            category: category,
-            description: description,
-            date: txDate,
-        }))
-    })
-
-    // 2. 更新每一个用户的余额
-    for (const userId of userIds) {
-        await prisma.user.update({
-            where: { id: userId },
-            data: {
-                personalBalance: { increment: amount }
-            }
-        })
-    }
+    // 原子操作：和流水、余额更新并行提交，不会出现一部分失败导致余额不一致
+    await prisma.$transaction([
+        prisma.personalTransaction.createMany({
+            data: userIds.map(userId => ({
+                userId,
+                amount,
+                category,
+                description,
+                date: txDate,
+            }))
+        }),
+        ...userIds.map(userId =>
+            prisma.user.update({
+                where: { id: userId },
+                data: { personalBalance: { increment: amount } }
+            })
+        )
+    ])
     revalidatePath('/finance')
     revalidatePath('/')
 }
 
 export async function updatePersonalTransaction(id: string, data: Omit<PersonalFundInput, 'userId'>) {
+    await requireAdmin()
     const existingTx = await prisma.personalTransaction.findUnique({ where: { id } })
     if (!existingTx) throw new Error("Transaction not found")
 
@@ -153,6 +157,7 @@ export async function updatePersonalTransaction(id: string, data: Omit<PersonalF
 }
 
 export async function deletePersonalTransaction(id: string) {
+    await requireAdmin()
     const existingTx = await prisma.personalTransaction.findUnique({ where: { id } })
     if (!existingTx) throw new Error("Transaction not found")
 
@@ -172,6 +177,7 @@ export async function deletePersonalTransaction(id: string) {
 
 // ============== 聚餐分摊操作 ==============
 export async function addDiningExpense(data: DiningShareInput) {
+    await requireAdmin()
     const { totalAmount, participantIds, description, date } = data
     const numPeople = participantIds.length
     if (numPeople === 0) throw new Error("No participants")
@@ -245,6 +251,7 @@ export async function getDiningRecords() {
 }
 
 export async function updateDiningRecord(id: string, data: { date?: string, handlerName?: string | null, restaurantName?: string | null }) {
+    await requireAdmin()
     await prisma.diningRecord.update({
         where: { id },
         data: {
@@ -258,6 +265,7 @@ export async function updateDiningRecord(id: string, data: { date?: string, hand
 }
 
 export async function deleteDiningRecord(id: string) {
+    await requireAdmin()
     const diningRecord = await prisma.diningRecord.findUnique({ where: { id } })
     if (!diningRecord) throw new Error("Dining record not found")
 
