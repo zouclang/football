@@ -1,0 +1,20 @@
+import { getTeamInfo } from '@/lib/actions/team'
+import { TeamClient } from '@/components/TeamClient'
+import prisma from '@/lib/prisma'
+import { getSession } from '@/lib/auth'
+
+export const dynamic = 'force-dynamic'
+
+export default async function TeamPage() {
+    const session = await getSession()
+    const teamInfo = await getTeamInfo()
+    const players = await prisma.user.findMany({
+        orderBy: { name: 'asc' }
+    })
+
+    return (
+        <div className="space-y-6">
+            <TeamClient initialData={teamInfo || {}} players={players} role={session?.role || 'player'} />
+        </div>
+    )
+}

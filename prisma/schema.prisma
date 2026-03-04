@@ -1,0 +1,151 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                   String                  @id @default(cuid())
+  name                 String
+  birthDate            String?
+  enrollmentYear       String?
+  major                String?
+  teamRole             String?
+  jerseyNumber         String?
+  jerseySize           String?
+  profilePhoto         String?
+  suzhouProofType      String?
+  suzhouProofUrl       String?
+  educationProofType   String?
+  educationProofUrl    String?
+  positions            String?
+  personalBalance      Float                   @default(0)
+  isActive             Boolean                 @default(true)
+  isRetired            Boolean                 @default(false)
+  isMember             Boolean                 @default(false)
+  historicalMatches    Int                     @default(0)
+  historicalGoals      Int                     @default(0)
+  historicalAssists    Int                     @default(0)
+  createdAt            DateTime                @default(now())
+  updatedAt            DateTime                @updatedAt
+  attendances          Attendance[]
+  personalTransactions PersonalTransaction[]
+  asLeader             TeamInfo[]              @relation("LeaderRelation")
+  asCaptain            TeamInfo[]              @relation("CaptainRelation")
+  memberTransactions   MemberFundTransaction[] @relation("MemberFundTransactionToUser")
+  tournaments          Tournament[]            @relation("TournamentToUser")
+}
+
+model TeamInfo {
+  id              String   @id @default(cuid())
+  foundationDate  String?
+  groupPhotoUrl   String?
+  highlightPhotos String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  captainId       String?
+  leaderId        String?
+  leaderName      String?
+  leader          User?    @relation("LeaderRelation", fields: [leaderId], references: [id])
+  captain         User?    @relation("CaptainRelation", fields: [captainId], references: [id])
+}
+
+model Match {
+  id           String       @id @default(cuid())
+  date         DateTime
+  opponent     String
+  type         String
+  leagueName   String?
+  ourScore     Int?
+  theirScore   Int?
+  result       String?
+  cost         Float?       @default(0)
+  tournamentId String?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  attendances  Attendance[]
+  tournament   Tournament?  @relation(fields: [tournamentId], references: [id])
+}
+
+model Attendance {
+  id        String   @id @default(cuid())
+  userId    String
+  matchId   String
+  goals     Int      @default(0)
+  assists   Int      @default(0)
+  createdAt DateTime @default(now())
+  fee       Float?   @default(0)
+  match     Match    @relation(fields: [matchId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@unique([userId, matchId])
+}
+
+model TeamFundTransaction {
+  id              String   @id @default(cuid())
+  amount          Float
+  transactionType String
+  category        String
+  description     String?
+  date            DateTime @default(now())
+  handlerName     String?
+  createdAt       DateTime @default(now())
+  diningRecordId  String?
+}
+
+model PersonalTransaction {
+  id             String   @id @default(cuid())
+  userId         String
+  amount         Float
+  category       String
+  description    String?
+  date           DateTime @default(now())
+  createdAt      DateTime @default(now())
+  diningRecordId String?
+  user           User     @relation(fields: [userId], references: [id])
+}
+
+model DiningRecord {
+  id               String   @id @default(cuid())
+  date             DateTime
+  totalAmount      Float
+  perPersonAmount  Float
+  subsidyAmount    Float
+  handlerName      String?
+  restaurantName   String?
+  participantCount Int
+  createdAt        DateTime @default(now())
+}
+
+model Tournament {
+  id        String   @id @default(cuid())
+  name      String
+  startDate String?
+  endDate   String?
+  entryFee  Float    @default(0)
+  deposit   Float    @default(0)
+  deduction Float    @default(0)
+  finalRank String?
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  matches   Match[]
+  players   User[]   @relation("TournamentToUser")
+}
+
+model MemberFundTransaction {
+  id              String   @id @default(cuid())
+  date            DateTime
+  totalAmount     Float
+  perPersonAmount Float?
+  type            String
+  description     String?
+  matchId         String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  payers          User[]   @relation("MemberFundTransactionToUser")
+}
