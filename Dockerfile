@@ -9,9 +9,9 @@ WORKDIR /app
 # 1. 依赖阶段
 FROM base AS deps
 WORKDIR /app
-COPY package.json package-lock.json ./
+COPY package.json package-lock.json .npmrc ./
 
-# 强制 better-sqlite3 从源码编译，跳过从 GitHub 下载预编译包（避免网络超时）
+# 强制 better-sqlite3 从源码编译，跳过从 GitHub 下载（避免网络超时卡住）
 ENV BETTER_SQLITE3_BUILD_FROM_SOURCE=1
 RUN npm ci --legacy-peer-deps
 
