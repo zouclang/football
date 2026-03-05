@@ -11,7 +11,19 @@ type ChartProps = {
 
 const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899']
 
+import { useState, useEffect } from 'react'
+
 export function DashboardCharts({ type, data, barName, barColor }: ChartProps) {
+    const [isMounted, setIsMounted] = useState(false)
+
+    useEffect(() => {
+        setIsMounted(true)
+    }, [])
+
+    if (!isMounted) {
+        return <div className="h-[300px] w-full flex items-center justify-center text-slate-300 animate-pulse bg-slate-50/50 rounded-lg">图表加载中...</div>
+    }
+
     if (type === 'pie') {
         return (
             <div className="h-[300px] w-full">

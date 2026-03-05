@@ -1,10 +1,16 @@
 "use client"
 
 import { useRouter } from 'next/navigation'
+import { useState, useEffect } from 'react'
 
 export function DashboardYearSelector({ currentYear }: { currentYear: string }) {
     const router = useRouter()
+    const [isMounted, setIsMounted] = useState(false)
     const currentYearNum = new Date().getFullYear()
+
+    useEffect(() => {
+        setIsMounted(true)
+    }, [])
 
     return (
         <select
@@ -17,7 +23,7 @@ export function DashboardYearSelector({ currentYear }: { currentYear: string }) 
         >
             <option value="ALL">全部</option>
             <option value="BEFORE_2026">2026年之前</option>
-            {Array.from({ length: Math.max(0, currentYearNum - 2026 + 1) }, (_, i) => 2026 + i).reverse().map(y => (
+            {isMounted && Array.from({ length: Math.max(0, currentYearNum - 2026 + 1) }, (_, i) => 2026 + i).reverse().map(y => (
                 <option key={y} value={y.toString()}>{y}年</option>
             ))}
         </select>
