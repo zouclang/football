@@ -5,6 +5,7 @@ import { Plus, Edit2, Trash2, X, Search } from 'lucide-react'
 import { savePlayer, deletePlayer, type PlayerInput } from '@/lib/actions/player'
 import { uploadToStorage } from '@/lib/actions/storage'
 import Link from 'next/link'
+import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { Pagination } from './Pagination'
 
@@ -196,7 +197,14 @@ export function PlayerClient({ initialPlayers, currentYear, role = 'player', cur
                                     <div className="flex items-center gap-3">
                                         <Link href={`/players/${player.id}`} className="shrink-0 transition-opacity hover:opacity-80">
                                             {player.profilePhoto ? (
-                                                <img src={player.profilePhoto} alt="" className="w-10 h-10 rounded-full object-cover" />
+                                                <Image
+                                                    src={player.profilePhoto}
+                                                    alt={player.name}
+                                                    width={40}
+                                                    height={40}
+                                                    className="w-10 h-10 rounded-full object-cover"
+                                                    loading="lazy"
+                                                />
                                             ) : (
                                                 <span className="w-10 h-10 rounded-full bg-slate-200 inline-flex items-center justify-center text-slate-500 font-bold">
                                                     {player.name[0]}

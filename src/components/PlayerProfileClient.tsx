@@ -1,6 +1,7 @@
 "use client"
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { ArrowLeft, User, Shield, Activity, Wallet, Calendar as CalendarIcon, MapPin, GraduationCap, Trophy, Zap, Star } from 'lucide-react'
 import { format } from 'date-fns'
 import { useState } from 'react'
@@ -143,7 +144,7 @@ export function PlayerProfileClient({ player, matchCountsByYear, role = 'player'
                             <div className="w-40 h-40 md:w-48 md:h-48 rounded-full border-4 border-white/20 p-2 relative z-10 bg-slate-800/50 backdrop-blur-sm shadow-2xl flex justify-center items-center overflow-hidden">
                                 <div className="w-full h-full rounded-full border-4 border-emerald-400/30 overflow-hidden bg-slate-700">
                                     {player.profilePhoto ? (
-                                        <img src={player.profilePhoto} alt={player.name} className="w-full h-full object-cover transform hover:scale-110 transition-transform duration-700" />
+                                        <Image src={player.profilePhoto} alt={player.name} width={200} height={200} className="w-full h-full object-cover transform hover:scale-110 transition-transform duration-700" priority />
                                     ) : (
                                         <User className="w-24 h-24 text-slate-500" />
                                     )}
