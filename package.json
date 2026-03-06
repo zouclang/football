@@ -5,13 +5,14 @@
   "scripts": {
     "dev": "next dev --webpack",
     "build": "next build && cp -r .next/static .next/standalone/.next/static",
-    "start": "node .next/standalone/server.js",
+    "start": "NODE_ENV=production node server.js",
     "lint": "eslint"
   },
   "dependencies": {
     "better-sqlite3": "^12.6.2",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
+    "express": "^5.2.1",
     "lucide-react": "^0.575.0",
     "next": "16.1.6",
     "puppeteer": "^24.38.0",
