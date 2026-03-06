@@ -15,7 +15,9 @@ export async function GET(
 
     // Try to find the file in public/uploads 
     // This serves as a dynamic fallback for Next.js caching bug when files are added at runtime
-    const filePath = path.join(process.cwd(), 'public', 'uploads', filename as string);
+    const isStandalone = process.cwd().includes('.next');
+    const projectRoot = isStandalone ? path.join(process.cwd(), '../..') : process.cwd();
+    const filePath = path.join(projectRoot, 'public', 'uploads', filename as string);
 
     try {
         const stat = await fs.stat(filePath);
