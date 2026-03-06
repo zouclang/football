@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { DollarSign, Wallet, Edit2, Trash2, X } from 'lucide-react'
 import {
     addTeamFundTransaction, addPersonalTransactions, addDiningExpense,
@@ -55,11 +55,15 @@ export function FinanceClient({
 }: FinanceClientProps) {
     const [activeTab, setActiveTab] = useState<'TEAM' | 'PERSONAL' | 'DINING' | 'MEMBER'>('TEAM')
 
-    const [currentMemberPage, setCurrentMemberPage] = useState(1)
-    const [memberPageSize, setMemberPageSize] = useState(15)
     const [showAllInOverview, setShowAllInOverview] = useState(false)
     const [overviewPage, setOverviewPage] = useState(1)
     const overviewPageSize = 10
+
+    const [currentMemberPage, setCurrentMemberPage] = useState(1)
+    const [memberPageSize, setMemberPageSize] = useState(15)
+
+    const [isMounted, setIsMounted] = useState(false)
+    useEffect(() => setIsMounted(true), [])
 
     // 全局过滤：过滤掉已挂靴球员。已挂靴球员不参与任何业务选人。
     const playersToWorkWith = players.filter(p => !p.isRetired)
