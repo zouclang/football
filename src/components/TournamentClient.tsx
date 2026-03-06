@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+
 import { Trophy, Plus, Calendar as CalendarIcon, Edit2, Trash2, X, FileText } from 'lucide-react'
 import { format } from 'date-fns'
 import { saveTournament, deleteTournament } from '@/lib/actions/tournament'
@@ -37,6 +38,9 @@ export function TournamentClient({ initialTournaments, players, role }: Tourname
     const [currentPage, setCurrentPage] = useState(1)
     const [pageSize, setPageSize] = useState(10)
 
+    const [isMounted, setIsMounted] = useState(false)
+    useEffect(() => setIsMounted(true), [])
+
     const handleOpen = (item?: TournamentWithPlayers) => {
         if (item) setEditingTx(item)
         else setEditingTx(null)
@@ -59,113 +63,121 @@ export function TournamentClient({ initialTournaments, players, role }: Tourname
 
     return (
         <div className="space-y-6">
-            <div className="flex justify-between items-center mb-6">
-                <div>
-                    <h1 className="text-3xl font-bold gap-2 flex items-center text-slate-900">
-                        <Trophy className="w-8 h-8 text-emerald-500" />
-                        赛事管理
-                    </h1>
-                    <p className="text-slate-500 mt-2">统揽从大型杯赛到系列联赛的所有时间跨度和经费台账记录。</p>
+            {!isMounted ? (
+                <div className="flex items-center justify-center p-12 text-slate-400 animate-pulse">
+                    加载赛事数据中...
                 </div>
-                {role === 'admin' && (
-                    <button
-                        onClick={() => handleOpen()}
-                        className="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-xl font-medium flex items-center gap-2 transition-colors shadow-sm"
-                    >
-                        <Plus className="w-5 h-5" />
-                        新建赛事记录
-                    </button>
-                )}
-            </div>
+            ) : (
+                <>
+                    <div className="flex justify-between items-center mb-6">
+                        <div>
+                            <h1 className="text-3xl font-bold gap-2 flex items-center text-slate-900">
+                                <Trophy className="w-8 h-8 text-emerald-500" />
+                                赛事管理
+                            </h1>
+                            <p className="text-slate-500 mt-2">统揽从大型杯赛到系列联赛的所有时间跨度和经费台账记录。</p>
+                        </div>
+                        {role === 'admin' && (
+                            <button
+                                onClick={() => handleOpen()}
+                                className="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-xl font-medium flex items-center gap-2 transition-colors shadow-sm"
+                            >
+                                <Plus className="w-5 h-5" />
+                                新建赛事记录
+                            </button>
+                        )}
+                    </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {tournaments.slice((currentPage - 1) * pageSize, currentPage * pageSize).map((t) => (
-                    <div key={t.id} className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden hover:shadow-md transition-shadow">
-                        <div className="p-5 border-b border-slate-100 bg-slate-50/50">
-                            <div className="flex justify-between items-start mb-2">
-                                <Link
-                                    href={`/matches?tournamentId=${t.id}`}
-                                    className="font-bold text-lg text-slate-800 break-words hover:text-emerald-600 hover:underline transition-colors"
-                                >
-                                    {t.name}
-                                </Link>
-                                <div className="flex gap-1 ml-4 shrink-0">
-                                    {role === 'admin' && (
-                                        <>
-                                            <button onClick={() => handleOpen(t)} className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors">
-                                                <Edit2 className="w-4 h-4" />
-                                            </button>
-                                            <button onClick={() => handleDelete(t.id, t.name)} disabled={deletingId === t.id} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50">
-                                                <Trash2 className="w-4 h-4" />
-                                            </button>
-                                        </>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {tournaments.slice((currentPage - 1) * pageSize, currentPage * pageSize).map((t) => (
+                            <div key={t.id} className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden hover:shadow-md transition-shadow">
+                                <div className="p-5 border-b border-slate-100 bg-slate-50/50">
+                                    <div className="flex justify-between items-start mb-2">
+                                        <Link
+                                            href={`/matches?tournamentId=${t.id}`}
+                                            className="font-bold text-lg text-slate-800 break-words hover:text-emerald-600 hover:underline transition-colors"
+                                        >
+                                            {t.name}
+                                        </Link>
+                                        <div className="flex gap-1 ml-4 shrink-0">
+                                            {role === 'admin' && (
+                                                <>
+                                                    <button onClick={() => handleOpen(t)} className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors">
+                                                        <Edit2 className="w-4 h-4" />
+                                                    </button>
+                                                    <button onClick={() => handleDelete(t.id, t.name)} disabled={deletingId === t.id} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50">
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </button>
+                                                </>
+                                            )}
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center text-sm text-slate-500 gap-1.5">
+                                        <CalendarIcon className="w-4 h-4" />
+                                        {t.startDate ? t.startDate : '待定'} {t.endDate ? `至 ${t.endDate}` : ''}
+                                    </div>
+                                    {t.finalRank && (
+                                        <div className="mt-3 inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-100">
+                                            🏆 最终成绩: {t.finalRank}
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="p-5 space-y-4">
+                                    <div className="grid grid-cols-3 gap-4 text-center divide-x divide-slate-100">
+                                        <div>
+                                            <p className="text-xs text-slate-500 mb-1">报名费</p>
+                                            <p className="font-semibold text-slate-800">¥{t.entryFee.toFixed(1)}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-xs text-slate-500 mb-1">保证金</p>
+                                            <p className="font-semibold text-slate-800">¥{t.deposit.toFixed(1)}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-xs text-slate-500 mb-1">各项扣费</p>
+                                            <p className="font-semibold text-red-600">¥{t.deduction.toFixed(1)}</p>
+                                        </div>
+                                    </div>
+
+                                    {t.notes && (
+                                        <div className="mt-4 pt-4 border-t border-slate-100 flex items-start gap-2 text-sm text-slate-600 bg-slate-50 p-3 rounded-lg">
+                                            <FileText className="w-4 h-4 mt-0.5 shrink-0 text-slate-400" />
+                                            <span className="whitespace-pre-wrap">{t.notes}</span>
+                                        </div>
                                     )}
                                 </div>
                             </div>
-                            <div className="flex items-center text-sm text-slate-500 gap-1.5">
-                                <CalendarIcon className="w-4 h-4" />
-                                {t.startDate ? t.startDate : '待定'} {t.endDate ? `至 ${t.endDate}` : ''}
+                        ))}
+
+                        {tournaments.length === 0 && (
+                            <div className="col-span-full py-16 text-center text-slate-400 bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl">
+                                <Trophy className="w-12 h-12 mx-auto mb-3 text-slate-300" />
+                                <p>还没有记录过任何大型赛事数据，点击上方添加一笔吧！</p>
                             </div>
-                            {t.finalRank && (
-                                <div className="mt-3 inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-100">
-                                    🏆 最终成绩: {t.finalRank}
-                                </div>
-                            )}
-                        </div>
-                        <div className="p-5 space-y-4">
-                            <div className="grid grid-cols-3 gap-4 text-center divide-x divide-slate-100">
-                                <div>
-                                    <p className="text-xs text-slate-500 mb-1">报名费</p>
-                                    <p className="font-semibold text-slate-800">¥{t.entryFee.toFixed(1)}</p>
-                                </div>
-                                <div>
-                                    <p className="text-xs text-slate-500 mb-1">保证金</p>
-                                    <p className="font-semibold text-slate-800">¥{t.deposit.toFixed(1)}</p>
-                                </div>
-                                <div>
-                                    <p className="text-xs text-slate-500 mb-1">各项扣费</p>
-                                    <p className="font-semibold text-red-600">¥{t.deduction.toFixed(1)}</p>
-                                </div>
-                            </div>
-
-                            {t.notes && (
-                                <div className="mt-4 pt-4 border-t border-slate-100 flex items-start gap-2 text-sm text-slate-600 bg-slate-50 p-3 rounded-lg">
-                                    <FileText className="w-4 h-4 mt-0.5 shrink-0 text-slate-400" />
-                                    <span className="whitespace-pre-wrap">{t.notes}</span>
-                                </div>
-                            )}
-                        </div>
+                        )}
                     </div>
-                ))}
 
-                {tournaments.length === 0 && (
-                    <div className="col-span-full py-16 text-center text-slate-400 bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl">
-                        <Trophy className="w-12 h-12 mx-auto mb-3 text-slate-300" />
-                        <p>还没有记录过任何大型赛事数据，点击上方添加一笔吧！</p>
-                    </div>
-                )}
-            </div>
+                    <Pagination
+                        currentPage={currentPage}
+                        pageSize={pageSize}
+                        totalItems={tournaments.length}
+                        onPageChange={setCurrentPage}
+                        onPageSizeChange={(size) => {
+                            setPageSize(size)
+                            setCurrentPage(1)
+                        }}
+                    />
 
-            <Pagination
-                currentPage={currentPage}
-                pageSize={pageSize}
-                totalItems={tournaments.length}
-                onPageChange={setCurrentPage}
-                onPageSizeChange={(size) => {
-                    setPageSize(size)
-                    setCurrentPage(1)
-                }}
-            />
-
-            {isOpen && (
-                <TournamentFormModal
-                    initialData={editingTx}
-                    players={players}
-                    onClose={() => {
-                        setIsOpen(false)
-                        router.refresh()
-                    }}
-                />
+                    {isOpen && (
+                        <TournamentFormModal
+                            initialData={editingTx}
+                            players={players}
+                            onClose={() => {
+                                setIsOpen(false)
+                                router.refresh()
+                            }}
+                        />
+                    )}
+                </>
             )}
         </div>
     )
