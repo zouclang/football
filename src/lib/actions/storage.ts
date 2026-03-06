@@ -30,8 +30,10 @@ export async function uploadToStorage(file: File): Promise<string> {
     const arrayBuffer = await file.arrayBuffer()
     const buffer = Buffer.from(arrayBuffer)
 
-    // 确保上传目录存在
-    const uploadDir = path.join(process.cwd(), 'public', 'uploads')
+    // 确保上传目录存在于真实的根目录，防止 standalone 模式写进随时会被清空的 .next 文件夹
+    const isStandalone = process.cwd().includes('.next');
+    const projectRoot = isStandalone ? path.join(process.cwd(), '../..') : process.cwd();
+    const uploadDir = path.join(projectRoot, 'public', 'uploads');
     try {
         await fs.access(uploadDir)
     } catch {
