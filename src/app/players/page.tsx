@@ -22,7 +22,8 @@ export default async function PlayersPage(props: { searchParams: Promise<{ year?
     // 球员列表（照片现已改为 /uploads/ 相对路径 URL，不再是 Base64，不再有 SSR 负担）
     const users = db.prepare(`
         SELECT id, name, jerseyNumber, jerseySize, birthDate, enrollmentYear,
-               major, teamRole, positions, personalBalance, profilePhoto,
+               major, teamRole, positions, personalBalance, 
+               CASE WHEN profilePhoto LIKE '/uploads/%' THEN profilePhoto ELSE NULL END as profilePhoto,
                isActive, isRetired, isMember,
                historicalMatches, historicalGoals, historicalAssists, createdAt
         FROM "User"
