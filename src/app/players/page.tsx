@@ -19,11 +19,10 @@ export default async function PlayersPage(props: { searchParams: Promise<{ year?
     // 直接 SQL：better-sqlite3 同步执行，无 IPC 开销
     // Prisma 同等查询要 1.3-1.7s；这里 <5ms
 
-    // 球员列表（不含 profilePhoto —— 每张图 1-3MB，83 人 = 170MB SSR 负担）
-    // 详情页单独加载照片
+    // 球员列表（照片现已改为 /uploads/ 相对路径 URL，不再是 Base64，不再有 SSR 负担）
     const users = db.prepare(`
         SELECT id, name, jerseyNumber, jerseySize, birthDate, enrollmentYear,
-               major, teamRole, positions, personalBalance,
+               major, teamRole, positions, personalBalance, profilePhoto,
                isActive, isRetired, isMember,
                historicalMatches, historicalGoals, historicalAssists, createdAt
         FROM "User"
