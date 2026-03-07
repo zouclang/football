@@ -37,12 +37,17 @@ export default async function PlayersPage(props: { searchParams: Promise<{ year?
     let totalMatchCount = 0
 
     if (!isBefore2026) {
+        // SQLite stores dates as milliseconds timestamps via Prisma
+        const startTimestamp = isAll ? new Date('2026-01-01').getTime() : new Date(`${thisYear}-01-01`).getTime()
+        const endTimestamp = isAll ? 0 : new Date(`${thisYear! + 1}-01-01`).getTime()
+
         const dateFilterJoin = isAll
-            ? `m.date >= '2026-01-01'`
-            : `m.date >= '${thisYear}-01-01' AND m.date < '${thisYear! + 1}-01-01'`
+            ? `m.date >= ${startTimestamp}`
+            : `m.date >= ${startTimestamp} AND m.date < ${endTimestamp}`
+
         const dateFilterPlain = isAll
-            ? `date >= '2026-01-01'`
-            : `date >= '${thisYear}-01-01' AND date < '${thisYear! + 1}-01-01'`
+            ? `date >= ${startTimestamp}`
+            : `date >= ${startTimestamp} AND date < ${endTimestamp}`
 
         statsRows = db.prepare(`
             SELECT a.userId,
