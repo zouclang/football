@@ -1,16 +1,23 @@
 services:
   football:
-    image: football-app:latest   # 使用本地构建好的镜像
+    build: .
     container_name: football-app
+    restart: always
     ports:
       - "3000:3000"
     volumes:
-      - ./data:/app/data                       # SQLite 数据库持久化
-      - ./public/uploads:/app/public/uploads   # 球员头像持久化
+      # 数据库文件持久化 (挂载到 data 目录)
+      - ./data:/app/data
+      # 球员照片持久化
+      - ./public/uploads:/app/public/uploads
     environment:
-      - DATABASE_URL=file:/app/data/dev.db
       - NODE_ENV=production
-      - NEXT_TELEMETRY_DISABLED=1
-      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
-      - PLAYER_PASSWORD=${PLAYER_PASSWORD}
-    restart: unless-stopped
+      # 数据库必须指向挂载的 data 目录下的文件
+      - DATABASE_URL=file:/app/data/dev.db
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin123}
+      - PLAYER_PASSWORD=${PLAYER_PASSWORD:-player123}
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

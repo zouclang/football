@@ -1,52 +1,51 @@
-# 使用更轻量的 Node.js 镜像
-FROM node:20-alpine AS base
-
-# 安装运行时依赖
-RUN apk add --no-cache openssl
-
+# Stage 1: Install dependencies
+FROM node:20-slim AS deps
 WORKDIR /app
 
-# 1. 依赖阶段
-FROM base AS deps
-WORKDIR /app
+# Install openssl for Prisma
+RUN apt-get update && apt-get install -y openssl
+
 COPY package.json package-lock.json ./
-RUN npm ci --legacy-peer-deps
+RUN npm ci
 
-# 2. 构建阶段
-FROM base AS builder
+# Stage 2: Build the application
+FROM node:20-slim AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# 生成 Prisma Client
-RUN npx prisma generate
-
-# 构建 Next.js 应用
+# Set environment variables for build
 ENV NEXT_TELEMETRY_DISABLED=1
+ENV NODE_ENV=production
+
+RUN npx prisma generate
 RUN npm run build
 
-# 3. 运行阶段
-FROM base AS runner
+# Stage 3: Production image
+FROM node:20-slim AS runner
 WORKDIR /app
+
+RUN apt-get update && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
-ENV PORT=3000
 
-# 创建必要目录
-RUN mkdir -p /app/data /app/public/uploads
+# Create the uploads and data directory to ensure they exist
+RUN mkdir -p public/uploads data
 
-# 拷贝构建产物
-COPY --from=builder /app/public ./public
+# Copy standalone build
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
-
-# 拷贝 node_modules 和 prisma（支持 db push 建表）
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/package.json ./package.json
+COPY --from=builder /app/public ./public
 COPY --from=builder /app/prisma ./prisma
+
+# Use a custom entrypoint script to handle migrations
+COPY --from=builder /app/migrate-avatars.js ./migrate-avatars.js
 
 EXPOSE 3000
 
-# 启动：自动建表 + 启动服务
-CMD npx prisma db push && node server.js
+ENV PORT=3000
+ENV HOSTNAME="0.0.0.0"
+
+# Startup command: run migrations then start the server
+CMD ["node", "server.js"]
