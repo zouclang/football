@@ -84,7 +84,7 @@ export function MatchClient({ initialMatches, totalCount, currentPage, pageSize,
 
     const getTypeLabel = (type: string, leagueName?: string | null) => {
         switch (type) {
-            case 'LEAGUE': return leagueName ? `高校联赛 (${leagueName})` : '高校联赛'
+            case 'LEAGUE': return leagueName ? leagueName : '高校联赛'
             case 'FRIENDLY': return '热身赛'
             default: return type
         }
