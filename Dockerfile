@@ -6,6 +6,7 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y openssl python3 make g++
 
 COPY package.json package-lock.json ./
+ENV PUPPETEER_SKIP_DOWNLOAD=true
 RUN npm ci
 
 # Stage 2: Build the application
