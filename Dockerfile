@@ -2,8 +2,8 @@
 FROM node:20-slim AS deps
 WORKDIR /app
 
-# Install openssl for Prisma
-RUN apt-get update && apt-get install -y openssl
+# Install openssl for Prisma and build tools for better-sqlite3
+RUN apt-get update && apt-get install -y openssl python3 make g++
 
 COPY package.json package-lock.json ./
 RUN npm ci
