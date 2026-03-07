@@ -33,13 +33,17 @@ export default async function MatchesPage(props: { searchParams: Promise<{ tourn
         params.push(`%${opponent}%`)
     }
     if (yearVal !== 'ALL') {
+        const startTimestamp = yearVal === 'BEFORE_2026' ? 0 : new Date(`${yearVal}-01-01`).getTime()
+        const endTimestamp = yearVal === 'BEFORE_2026' ? new Date('2026-01-01').getTime() : new Date(`${parseInt(yearVal) + 1}-01-01`).getTime()
+
         if (yearVal === 'BEFORE_2026') {
-            conditions.push(`m.date < '2026-01-01'`)
+            conditions.push(`m.date < ${endTimestamp}`)
         } else {
-            const y = parseInt(yearVal)
-            conditions.push(`m.date >= '${y}-01-01' AND m.date < '${y + 1}-01-01'`)
+            conditions.push(`m.date >= ${startTimestamp} AND m.date < ${endTimestamp}`)
         }
     }
+
+    console.log('[DEBUG MatchesPage]', { conditions, params, tournamentId, yearVal, opponent });
 
     const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : ''
 
@@ -48,9 +52,11 @@ export default async function MatchesPage(props: { searchParams: Promise<{ tourn
 
     // 当前页比赛
     const matchRows = db.prepare(`
-        SELECT m.id, m.date, m.opponent, m.type, m.tournamentId, m.leagueName,
+        SELECT m.id, m.date, m.opponent, m.type, m.tournamentId, 
+               COALESCE(t.name, m.leagueName) as leagueName,
                m.ourScore, m.theirScore, m.result, m.cost, m.createdAt
         FROM "Match" m
+        LEFT JOIN "Tournament" t ON m.tournamentId = t.id
         ${whereClause}
         ORDER BY m.date DESC
         LIMIT ? OFFSET ?
