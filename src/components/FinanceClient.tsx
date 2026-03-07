@@ -96,7 +96,7 @@ export function FinanceClient({
     const currentYear = new Date().getFullYear()
     const currentYearExpenses = teamTransactions.filter(tx =>
         tx.transactionType === 'EXPENSE' &&
-        new Date(tx.date).getFullYear() === currentYear
+        new Date(tx.date).getUTCFullYear() === currentYear
     )
 
     const expenseSummary = currentYearExpenses.reduce((acc, tx) => {
@@ -109,7 +109,7 @@ export function FinanceClient({
     // 计算本年度各项收入汇总
     const currentYearIncomes = teamTransactions.filter(tx =>
         tx.transactionType === 'INCOME' &&
-        new Date(tx.date).getFullYear() === currentYear
+        new Date(tx.date).getUTCFullYear() === currentYear
     )
 
     const incomeSummary = currentYearIncomes.reduce((acc, tx) => {
@@ -375,7 +375,7 @@ function TeamFundTab({ transactions, handlerOptions, incomeCategories, expenseCa
     }
 
     const filtered = filterYear
-        ? transactions.filter(t => new Date(t.date).getFullYear().toString() === filterYear)
+        ? transactions.filter(t => new Date(t.date).getUTCFullYear().toString() === filterYear)
         : transactions
 
     const paginated = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize)
@@ -776,13 +776,13 @@ function DiningShareTab({ players, activePlayers, handlerOptions, diningRecords,
         }
     }
 
-    const availableYears = Array.from(new Set(diningRecords.map(r => new Date(r.date).getFullYear().toString())))
+    const availableYears = Array.from(new Set(diningRecords.map(r => new Date(r.date).getUTCFullYear().toString())))
     if (!availableYears.includes(new Date().getFullYear().toString())) {
         availableYears.push(new Date().getFullYear().toString())
     }
     availableYears.sort((a, b) => Number(b) - Number(a))
 
-    const filteredRecords = diningRecords.filter(r => new Date(r.date).getFullYear().toString() === filterYear)
+    const filteredRecords = diningRecords.filter(r => new Date(r.date).getUTCFullYear().toString() === filterYear)
 
     const paginatedRecords = filteredRecords.slice((currentPage - 1) * pageSize, currentPage * pageSize)
 

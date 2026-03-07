@@ -39,7 +39,7 @@ type PlayerFull = {
 export function PlayerProfileClient({ player, matchCountsByYear, role = 'player', currentPlayerId }: { player: PlayerFull, matchCountsByYear: Record<string, number>, role?: 'admin' | 'player', currentPlayerId?: string }) {
     const currentYear = new Date().getFullYear()
     const yearsFrom2026 = Array.from({ length: Math.max(0, currentYear - 2026 + 1) }, (_, i) => 2026 + i)
-    const attendanceYears = player.attendances.map(a => new Date(a.match.date).getFullYear())
+    const attendanceYears = player.attendances.map(a => new Date(a.match.date).getUTCFullYear())
     const availableYears = Array.from(new Set([...yearsFrom2026, ...attendanceYears])).sort((a, b) => b - a)
 
     // 年份选项逻辑：始终包含 "全部", "2026之前" (如果有历史数据), 以及各个自然年
@@ -48,7 +48,7 @@ export function PlayerProfileClient({ player, matchCountsByYear, role = 'player'
     // 出勤率计算逻辑：固定显示本年度（如 2026）
     const actualCurrentYear = new Date().getFullYear().toString()
     const totalTeamMatchesThisYear = matchCountsByYear[actualCurrentYear] || 0
-    const playerAttendancesThisYear = player.attendances.filter(a => new Date(a.match.date).getFullYear().toString() === actualCurrentYear).length
+    const playerAttendancesThisYear = player.attendances.filter(a => new Date(a.match.date).getUTCFullYear().toString() === actualCurrentYear).length
 
     const currentYearAttendanceRate = totalTeamMatchesThisYear > 0
         ? Math.round((playerAttendancesThisYear / totalTeamMatchesThisYear) * 100)
@@ -68,22 +68,22 @@ export function PlayerProfileClient({ player, matchCountsByYear, role = 'player'
 
     if (selectedYear === 'ALL' || selectedYear === 'BEFORE_2026') {
         // 汇总视图 (全部 或 2026之前)
-        const pre2026App = player.historicalMatches + player.attendances.filter(a => new Date(a.match.date).getFullYear() < 2026).length
-        const pre2026Goals = player.historicalGoals + player.attendances.filter(a => new Date(a.match.date).getFullYear() < 2026).reduce((sum, a) => sum + (a.goals || 0), 0)
-        const pre2026Assists = player.historicalAssists + player.attendances.filter(a => new Date(a.match.date).getFullYear() < 2026).reduce((sum, a) => sum + (a.assists || 0), 0)
+        const pre2026App = player.historicalMatches + player.attendances.filter(a => new Date(a.match.date).getUTCFullYear() < 2026).length
+        const pre2026Goals = player.historicalGoals + player.attendances.filter(a => new Date(a.match.date).getUTCFullYear() < 2026).reduce((sum, a) => sum + (a.goals || 0), 0)
+        const pre2026Assists = player.historicalAssists + player.attendances.filter(a => new Date(a.match.date).getUTCFullYear() < 2026).reduce((sum, a) => sum + (a.assists || 0), 0)
 
-        const post2026App = player.attendances.filter(a => new Date(a.match.date).getFullYear() >= 2026).length
-        const post2026Goals = player.attendances.filter(a => new Date(a.match.date).getFullYear() >= 2026).reduce((sum, a) => sum + (a.goals || 0), 0)
-        const post2026Assists = player.attendances.filter(a => new Date(a.match.date).getFullYear() >= 2026).reduce((sum, a) => sum + (a.assists || 0), 0)
+        const post2026App = player.attendances.filter(a => new Date(a.match.date).getUTCFullYear() >= 2026).length
+        const post2026Goals = player.attendances.filter(a => new Date(a.match.date).getUTCFullYear() >= 2026).reduce((sum, a) => sum + (a.goals || 0), 0)
+        const post2026Assists = player.attendances.filter(a => new Date(a.match.date).getUTCFullYear() >= 2026).reduce((sum, a) => sum + (a.assists || 0), 0)
 
         if (selectedYear === 'ALL') {
             if (pre2026App > 0) statsList.push({ leagueName: '2026年之前数据汇总', allTime: { appearances: pre2026App, goals: pre2026Goals, assists: pre2026Assists } })
 
             // 2026年及以后：按年份单独汇总
-            const post2026Years = Array.from(new Set(player.attendances.filter(a => new Date(a.match.date).getFullYear() >= 2026).map(a => new Date(a.match.date).getFullYear()))).sort((a, b) => a - b)
+            const post2026Years = Array.from(new Set(player.attendances.filter(a => new Date(a.match.date).getUTCFullYear() >= 2026).map(a => new Date(a.match.date).getUTCFullYear()))).sort((a, b) => a - b)
 
             post2026Years.forEach(year => {
-                const yearAttendances = player.attendances.filter(a => new Date(a.match.date).getFullYear() === year)
+                const yearAttendances = player.attendances.filter(a => new Date(a.match.date).getUTCFullYear() === year)
                 const yApp = yearAttendances.length
                 const yGoals = yearAttendances.reduce((sum, a) => sum + (a.goals || 0), 0)
                 const yAssists = yearAttendances.reduce((sum, a) => sum + (a.assists || 0), 0)
@@ -98,7 +98,7 @@ export function PlayerProfileClient({ player, matchCountsByYear, role = 'player'
         }
     } else {
         // 年度/特定视图：展示具体赛事明细
-        const filteredAttendances = player.attendances.filter(a => new Date(a.match.date).getFullYear() === selectedYear)
+        const filteredAttendances = player.attendances.filter(a => new Date(a.match.date).getUTCFullYear() === selectedYear)
 
         const grouped = filteredAttendances.reduce((acc, a) => {
             const m = a.match
