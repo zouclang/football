@@ -52,3 +52,7 @@ node_modules/
 *.db-wal
 *.db-shm
 /data/
+
+# 隐藏上传的球员头像等包含个人信息的附件
+/public/uploads/*
+!/public/uploads/.gitkeep
