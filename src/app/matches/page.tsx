@@ -33,17 +33,18 @@ export default async function MatchesPage(props: { searchParams: Promise<{ tourn
         params.push(`%${opponent}%`)
     }
     if (yearVal !== 'ALL') {
-        const startTimestamp = yearVal === 'BEFORE_2026' ? 0 : new Date(`${yearVal}-01-01`).getTime()
-        const endTimestamp = yearVal === 'BEFORE_2026' ? new Date('2026-01-01').getTime() : new Date(`${parseInt(yearVal) + 1}-01-01`).getTime()
+        const y = yearVal === 'BEFORE_2026' ? 2026 : parseInt(yearVal)
+        const startMs = Date.UTC(y, 0, 1) // 当年1月1日 00:00:00 UTC
+        const endMs = Date.UTC(y + 1, 0, 1) // 次年1月1日 00:00:00 UTC
 
         if (yearVal === 'BEFORE_2026') {
-            conditions.push(`m.date < ${endTimestamp}`)
+            conditions.push(`m.date < ?`)
+            params.push(Date.UTC(2026, 0, 1))
         } else {
-            conditions.push(`m.date >= ${startTimestamp} AND m.date < ${endTimestamp}`)
+            conditions.push(`m.date >= ? AND m.date < ?`)
+            params.push(startMs, endMs)
         }
     }
-
-    console.log('[DEBUG MatchesPage]', { conditions, params, tournamentId, yearVal, opponent });
 
     const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : ''
 
