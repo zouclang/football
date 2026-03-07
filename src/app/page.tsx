@@ -72,7 +72,7 @@ export default async function DashboardPage(props: { searchParams: Promise<{ yea
     .filter(t => {
       if (t.transactionType !== 'EXPENSE') return false
       if (isAll) return true
-      const txYear = new Date(t.date).getFullYear()
+      const txYear = new Date(t.date).getUTCFullYear()
       if (isBefore2026) return txYear < 2026
       return txYear.toString() === year
     })
@@ -88,7 +88,7 @@ export default async function DashboardPage(props: { searchParams: Promise<{ yea
     .filter(t => {
       if (t.transactionType !== 'INCOME') return false
       if (isAll) return true
-      const txYear = new Date(t.date).getFullYear()
+      const txYear = new Date(t.date).getUTCFullYear()
       if (isBefore2026) return txYear < 2026
       return txYear.toString() === year
     })
@@ -102,7 +102,7 @@ export default async function DashboardPage(props: { searchParams: Promise<{ yea
   // Process Attendance Chart
   const filteredAttendances = (isAll || isBefore2026)
     ? (isBefore2026 ? [] : attendances)
-    : attendances.filter(a => new Date(a.match.date).getFullYear().toString() === year)
+    : attendances.filter(a => new Date(a.match.date).getUTCFullYear().toString() === year)
 
   const attendanceCounts = filteredAttendances.reduce((acc, a) => {
     acc[a.userId] = (acc[a.userId] || 0) + 1
