@@ -36,6 +36,9 @@ RUN mkdir -p public/uploads data
 
 # Copy standalone build
 COPY --from=builder /app/.next/standalone ./
+# OVERWRITE the standalone node_modules with the full generated ones from the builder
+# This guarantees better-sqlite3 and Prisma native binaries are present
+COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/prisma ./prisma
