@@ -1,0 +1,23 @@
+services:
+  football:
+    build: .
+    container_name: football-app
+    restart: always
+    ports:
+      - "3000:3000"
+    volumes:
+      # 数据库文件持久化 (挂载到 data 目录)
+      - ./data:/app/data
+      # 球员照片持久化
+      - ./public/uploads:/app/public/uploads
+    environment:
+      - NODE_ENV=production
+      # 数据库必须指向挂载的 data 目录下的文件
+      - DATABASE_URL=file:/app/data/dev.db
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin123}
+      - PLAYER_PASSWORD=${PLAYER_PASSWORD:-player123}
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
