@@ -76,6 +76,7 @@ export function MatchClient({ initialMatches, totalCount, currentPage, pageSize,
             setDeletingId(id)
             try {
                 await deleteMatch(id)
+                router.refresh()
             } finally {
                 setDeletingId(null)
             }
@@ -304,12 +305,20 @@ function MatchFormModal({ match, players, unfinishedTournaments, allTournaments,
 
     // 初始化时从关联的 Attendances 中还原 goals/assists/fee 数据，或默认为空状态 {}
     const initialAtts = match?.attendances?.reduce((acc: any, a: any) => {
-        acc[a.userId] = { goals: a.goals || 0, assists: a.assists || 0, fee: a.fee || 0 }
+        if (!a.isNoShow) {
+            acc[a.userId] = { goals: a.goals || 0, assists: a.assists || 0, fee: a.fee || 0, isDropIn: a.isDropIn || false, isLate: a.isLate || false, isGK: a.isGK || false }
+        }
         return acc
-    }, {} as Record<string, { goals: number, assists: number, fee: number }>) || {}
+    }, {} as Record<string, { goals: number, assists: number, fee: number, isDropIn: boolean, isLate: boolean, isGK: boolean }>) || {}
+
+    const initialNoShows = match?.attendances?.reduce((acc: any, a: any) => {
+        if (a.isNoShow) acc[a.userId] = true
+        return acc
+    }, {} as Record<string, boolean>) || {}
 
     // 采用对象字典存贮选定的球员以及他在本场的贡献与自发缴费
-    const [selectedPlayers, setSelectedPlayers] = useState<Record<string, { goals: number, assists: number, fee: number }>>(initialAtts)
+    const [selectedPlayers, setSelectedPlayers] = useState<Record<string, { goals: number, assists: number, fee: number, isDropIn: boolean, isLate: boolean, isGK: boolean }>>(initialAtts)
+    const [noShowPlayers, setNoShowPlayers] = useState<Record<string, boolean>>(initialNoShows)
 
     const [ourScore, setOurScore] = useState<string>(match?.ourScore?.toString() || '')
     const [theirScore, setTheirScore] = useState<string>(match?.theirScore?.toString() || '')
@@ -335,9 +344,34 @@ function MatchFormModal({ match, players, unfinishedTournaments, allTournaments,
             if (newObj[id]) {
                 delete newObj[id] // 如果已被选，则取消
             } else {
-                newObj[id] = { goals: 0, assists: 0, fee: 0 } // 新增则重置默认
+                newObj[id] = { goals: 0, assists: 0, fee: 0, isDropIn: false, isLate: false, isGK: false } // 新增则重置默认
             }
             return newObj
+        })
+        setNoShowPlayers(prev => {
+            if (prev[id]) {
+                const newObj = { ...prev }
+                delete newObj[id]
+                return newObj
+            }
+            return prev
+        })
+    }
+
+    const toggleNoShow = (id: string) => {
+        setNoShowPlayers(prev => {
+            const newObj = { ...prev }
+            if (newObj[id]) delete newObj[id]
+            else newObj[id] = true
+            return newObj
+        })
+        setSelectedPlayers(prev => {
+            if (prev[id]) {
+                const newObj = { ...prev }
+                delete newObj[id]
+                return newObj
+            }
+            return prev
         })
     }
 
@@ -350,6 +384,16 @@ function MatchFormModal({ match, players, unfinishedTournaments, allTournaments,
             if (newVal >= 0) {
                 newObj[id] = { ...newObj[id], [field]: newVal }
             }
+            return newObj
+        })
+    }
+
+    const updateBoolStat = (id: string, field: 'isDropIn' | 'isLate' | 'isGK', e: React.MouseEvent | React.ChangeEvent) => {
+        e.stopPropagation()
+        setSelectedPlayers(prev => {
+            if (!prev[id]) return prev
+            const newObj = { ...prev }
+            newObj[id] = { ...newObj[id], [field]: !newObj[id][field] }
             return newObj
         })
     }
@@ -390,12 +434,28 @@ function MatchFormModal({ match, players, unfinishedTournaments, allTournaments,
                 ourScore: parsedOurScore,
                 theirScore: parsedTheirScore,
                 result: calculatedResult,
-                attendances: Object.entries(selectedPlayers).map(([userId, stats]) => ({
-                    userId,
-                    goals: stats.goals,
-                    assists: stats.assists,
-                    fee: selectedType === 'FRIENDLY' ? stats.fee : 0
-                }))
+                attendances: [
+                    ...Object.entries(selectedPlayers).map(([userId, stats]) => ({
+                        userId,
+                        goals: stats.goals,
+                        assists: stats.assists,
+                        fee: selectedType === 'FRIENDLY' ? stats.fee : 0,
+                        isDropIn: stats.isDropIn,
+                        isLate: stats.isLate,
+                        isNoShow: false,
+                        isGK: stats.isGK
+                    })),
+                    ...Object.keys(noShowPlayers).filter(id => noShowPlayers[id]).map(userId => ({
+                        userId,
+                        goals: 0,
+                        assists: 0,
+                        fee: 0,
+                        isDropIn: false,
+                        isLate: false,
+                        isNoShow: true,
+                        isGK: false
+                    }))
+                ]
             })
             onClose()
         } catch (e) {
@@ -419,17 +479,10 @@ function MatchFormModal({ match, players, unfinishedTournaments, allTournaments,
         }
     } else {
         // 热身赛：展示逻辑
-        if (match?.id) {
-            // 编辑状态：未勾选“全部”时，只展示已选中的人员（不管是否隐退）
-            displayPlayers = showAllPlayers
-                ? players
-                : players.filter(p => !!selectedPlayers[p.id])
-        } else {
-            // 新增状态：未勾选“全部”时，展示活跃球员及已经被选中的隐退球员
-            displayPlayers = showAllPlayers
-                ? players
-                : players.filter(p => p.isActive !== false || !!selectedPlayers[p.id])
-        }
+        // 未勾选“全部”时，展示活跃球员及已经被选中的隐退球员
+        displayPlayers = showAllPlayers
+            ? players
+            : players.filter(p => p.isActive !== false || !!selectedPlayers[p.id] || !!noShowPlayers[p.id])
     }
 
     // 让已被勾选的人员始终排在花名册的最前面，次要排序为球衣号码
@@ -497,8 +550,8 @@ function MatchFormModal({ match, players, unfinishedTournaments, allTournaments,
                                         required
                                         className="w-full rounded-md border border-emerald-200 px-3 py-2 text-slate-900 focus:outline-emerald-500 bg-white"
                                     >
-                                        <option value="">-- 选择进行中的联赛 --</option>
-                                        {unfinishedTournaments.map(t => (
+                                        <option value="">-- 选择联赛 --</option>
+                                        {allTournaments.map(t => (
                                             <option key={t.id} value={t.id}>{t.name}</option>
                                         ))}
                                     </select>
@@ -565,9 +618,10 @@ function MatchFormModal({ match, players, unfinishedTournaments, allTournaments,
                                     <button
                                         type="button"
                                         onClick={() => {
-                                            const allObj: Record<string, { goals: number, assists: number, fee: number }> = {}
-                                            displayPlayers.forEach(p => allObj[p.id] = { goals: 0, assists: 0, fee: selectedType === 'FRIENDLY' ? 0 : 0 })
+                                            const allObj: Record<string, typeof initialAtts[string]> = {}
+                                            displayPlayers.forEach(p => allObj[p.id] = { goals: 0, assists: 0, fee: selectedType === 'FRIENDLY' ? 0 : 0, isDropIn: false, isLate: false, isGK: false })
                                             setSelectedPlayers(allObj)
+                                            setNoShowPlayers({})
                                         }}
                                         className="text-xs text-blue-600 hover:text-blue-800"
                                     >
@@ -575,7 +629,10 @@ function MatchFormModal({ match, players, unfinishedTournaments, allTournaments,
                                     </button>
                                     <button
                                         type="button"
-                                        onClick={() => setSelectedPlayers({})}
+                                        onClick={() => {
+                                            setSelectedPlayers({})
+                                            setNoShowPlayers({})
+                                        }}
                                         className="text-xs text-slate-400 hover:text-slate-600"
                                     >
                                         清空
@@ -653,11 +710,54 @@ function MatchFormModal({ match, players, unfinishedTournaments, allTournaments,
                                                             <button type="button" onClick={(e) => updateStats(player.id, 'assists', 1, e)} className="px-2 py-0.5 hover:bg-slate-100 text-slate-500">+</button>
                                                         </div>
                                                     </div>
+                                                    <div className={`grid gap-2 mt-2 border-t border-emerald-100/50 pt-2 ${selectedType === 'LEAGUE' ? 'grid-cols-3' : 'grid-cols-2'}`}>
+                                                        <label className="flex items-center gap-1 text-xs text-slate-600" onClick={e => e.stopPropagation()}>
+                                                            <input type="checkbox" checked={stats.isDropIn} onChange={(e) => updateBoolStat(player.id, 'isDropIn', e)} className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500" />
+                                                            空降
+                                                        </label>
+                                                        <label className="flex items-center gap-1 text-xs text-slate-600" onClick={e => e.stopPropagation()}>
+                                                            <input type="checkbox" checked={stats.isLate} onChange={(e) => updateBoolStat(player.id, 'isLate', e)} className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500" />
+                                                            迟到
+                                                        </label>
+                                                        {selectedType === 'LEAGUE' && (
+                                                            <label className="flex items-center gap-1 text-xs text-slate-600" onClick={e => e.stopPropagation()}>
+                                                                <input type="checkbox" checked={stats.isGK} onChange={(e) => updateBoolStat(player.id, 'isGK', e)} className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500" />
+                                                                门将
+                                                            </label>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             )}
                                         </div>
                                     )
                                 })}
+                            </div>
+                        </div>
+
+                        {/* 鸽子人员选择区 */}
+                        <div className="pt-6 mt-6 border-t border-slate-100">
+                            <label className="block text-sm font-medium text-slate-700 mb-3">本场放鸽子人员 (已选 {Object.keys(noShowPlayers).filter(id => noShowPlayers[id]).length} 人)</label>
+                            <div className="flex flex-wrap gap-2">
+                                {displayPlayers.filter(p => !selectedPlayers[p.id]).map(player => {
+                                    const isNoShow = !!noShowPlayers[player.id]
+                                    return (
+                                        <button
+                                            key={player.id}
+                                            type="button"
+                                            onClick={() => toggleNoShow(player.id)}
+                                            className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors border ${
+                                                isNoShow 
+                                                ? 'bg-rose-100 text-rose-700 border-rose-300 shadow-sm' 
+                                                : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100 hover:border-slate-300'
+                                            }`}
+                                        >
+                                            {player.name}
+                                        </button>
+                                    )
+                                })}
+                                {displayPlayers.filter(p => !selectedPlayers[p.id]).length === 0 && (
+                                    <span className="text-sm text-slate-400 p-2">所有人都出勤了</span>
+                                )}
                             </div>
                         </div>
                     </div>

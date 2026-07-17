@@ -2,6 +2,7 @@ import prisma from '@/lib/prisma'
 import { notFound } from 'next/navigation'
 import { PlayerProfileClient } from '@/components/PlayerProfileClient'
 import { getSession } from '@/lib/auth'
+import { getPlayerScores } from '@/lib/actions/player-score'
 
 export const dynamic = 'force-dynamic'
 
@@ -28,10 +29,13 @@ export default async function PlayerProfilePage({ params }: { params: Promise<{ 
         }
     })
 
+    const scores = await getPlayerScores(id)
+    const playerScore = scores[id] || { total: 0, details: [] }
+
     const matches = await prisma.match.findMany({ select: { date: true } })
     const matchCountsByYear: Record<string, number> = { 'ALL': matches.length }
     matches.forEach(m => {
-        const y = m.date.getFullYear().toString()
+        const y = m.date.getUTCFullYear().toString()
         matchCountsByYear[y] = (matchCountsByYear[y] || 0) + 1
     })
 
@@ -39,5 +43,5 @@ export default async function PlayerProfilePage({ params }: { params: Promise<{ 
         notFound()
     }
 
-    return <PlayerProfileClient player={player} matchCountsByYear={matchCountsByYear} role={session?.role || 'player'} currentPlayerId={session?.playerId} />
+    return <PlayerProfileClient player={player} matchCountsByYear={matchCountsByYear} role={session?.role || 'player'} currentPlayerId={session?.playerId} scoreData={playerScore} />
 }

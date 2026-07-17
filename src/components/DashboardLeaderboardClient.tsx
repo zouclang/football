@@ -8,13 +8,15 @@ type LeaderboardData = { name: string, count: number }
 export function DashboardLeaderboardClient({
     attendanceData,
     goalsData,
-    assistsData
+    assistsData,
+    pointsData
 }: {
     attendanceData: LeaderboardData[],
     goalsData: LeaderboardData[],
-    assistsData: LeaderboardData[]
+    assistsData: LeaderboardData[],
+    pointsData: LeaderboardData[]
 }) {
-    const [viewType, setViewType] = useState<'attendance' | 'goals' | 'assists'>('attendance')
+    const [viewType, setViewType] = useState<'attendance' | 'goals' | 'assists' | 'points'>('attendance')
 
     let currentData = attendanceData
     let title = "出勤排行榜"
@@ -31,6 +33,11 @@ export function DashboardLeaderboardClient({
         title = "助攻排行榜"
         barName = "助攻数"
         barColor = "#f59e0b"
+    } else if (viewType === 'points') {
+        currentData = pointsData
+        title = "总积分排行榜"
+        barName = "积分"
+        barColor = "#8b5cf6"
     }
 
     return (
@@ -42,11 +49,12 @@ export function DashboardLeaderboardClient({
                 <select
                     className="text-sm bg-slate-50 border border-slate-200 text-slate-700 rounded-md px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-shadow shadow-sm cursor-pointer"
                     value={viewType}
-                    onChange={(e) => setViewType(e.target.value as 'attendance' | 'goals' | 'assists')}
+                    onChange={(e) => setViewType(e.target.value as 'attendance' | 'goals' | 'assists' | 'points')}
                 >
                     <option value="attendance">出勤榜</option>
                     <option value="goals">射手榜</option>
                     <option value="assists">助攻榜</option>
+                    <option value="points">积分榜</option>
                 </select>
             </div>
             {currentData.length > 0 ? (

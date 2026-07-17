@@ -36,7 +36,7 @@ type PlayerFull = {
     memberTransactions: MemberFundTransaction[]
 }
 
-export function PlayerProfileClient({ player, matchCountsByYear, role = 'player', currentPlayerId }: { player: PlayerFull, matchCountsByYear: Record<string, number>, role?: 'admin' | 'player', currentPlayerId?: string }) {
+export function PlayerProfileClient({ player, matchCountsByYear, role = 'player', currentPlayerId, scoreData }: { player: PlayerFull, matchCountsByYear: Record<string, number>, role?: 'admin' | 'player', currentPlayerId?: string, scoreData?: { total: number, details: any[] } }) {
     const currentYear = new Date().getFullYear()
     const yearsFrom2026 = Array.from({ length: Math.max(0, currentYear - 2026 + 1) }, (_, i) => 2026 + i)
     const attendanceYears = player.attendances.map(a => new Date(a.match.date).getUTCFullYear())
@@ -57,6 +57,15 @@ export function PlayerProfileClient({ player, matchCountsByYear, role = 'player'
     // 分页状态
     const [currentPage, setCurrentPage] = useState(1)
     const [pageSize, setPageSize] = useState(5)
+
+    // 分数计算逻辑
+    const filteredScoreDetails = scoreData?.details?.filter(d => {
+        if (selectedYear === 'ALL') return true;
+        if (!d.date) return false;
+        if (selectedYear === 'BEFORE_2026') return new Date(d.date).getUTCFullYear() < 2026;
+        return new Date(d.date).getUTCFullYear() === selectedYear;
+    }) || [];
+    const displayedScoreTotal = filteredScoreDetails.reduce((sum, d) => sum + d.points, 0);
 
     // 生涯累计 (截止到目前，始终包含历史数据)
     const totalGoals = player.attendances.reduce((sum, a) => sum + (a.goals || 0), 0) + player.historicalGoals
@@ -211,6 +220,10 @@ export function PlayerProfileClient({ player, matchCountsByYear, role = 'player'
                                 <div className="px-4 py-1.5 bg-blue-500/20 text-blue-300 border border-blue-500/30 rounded-xl text-sm font-bold tracking-wide flex items-center gap-2">
                                     <Activity className="w-4 h-4" />
                                     {actualCurrentYear}年出勤率: {currentYearAttendanceRate}%
+                                </div>
+                                <div className="px-4 py-1.5 bg-yellow-500/20 text-yellow-300 border border-yellow-500/30 rounded-xl text-sm font-bold tracking-wide flex items-center gap-2">
+                                    <Star className="w-4 h-4" />
+                                    总积分: {displayedScoreTotal}
                                 </div>
                             </div>
                         </div>
@@ -402,6 +415,42 @@ export function PlayerProfileClient({ player, matchCountsByYear, role = 'player'
                             </div>
                         </div>
                     )}
+                </div>
+
+                {/* 积分流水账 */}
+                <div className="bg-white/70 backdrop-blur-xl rounded-3xl shadow-sm border border-white overflow-hidden flex flex-col md:col-span-2">
+                    <div className="p-6 border-b border-slate-100 bg-slate-50/50">
+                        <h3 className="font-black text-slate-800 flex items-center gap-2 text-lg">
+                            <Star className="w-5 h-5 text-yellow-500" /> 积分明细
+                        </h3>
+                    </div>
+                    
+                    <div className="p-0 overflow-y-auto max-h-80 grow">
+                        {filteredScoreDetails.length > 0 ? (
+                            <ul className="divide-y divide-slate-100">
+                                {filteredScoreDetails.map((detail, idx) => (
+                                    <li key={idx} className="p-4 hover:bg-slate-50 transition-colors">
+                                        <div className="flex justify-between items-start mb-1">
+                                            <div>
+                                                <div className="font-medium text-slate-800">{detail.ruleName}</div>
+                                                <div className="text-xs text-slate-500 line-clamp-1">{detail.description}</div>
+                                            </div>
+                                            <div className={`font-bold shrink-0 ${detail.points > 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                                {detail.points > 0 ? '+' : ''}{detail.points}
+                                            </div>
+                                        </div>
+                                        <div className="text-[10px] text-slate-400">
+                                            {format(new Date(detail.date), 'yyyy-MM-dd')}
+                                        </div>
+                                    </li>
+                                ))}
+                            </ul>
+                        ) : (
+                            <div className="p-8 text-center text-slate-400 text-sm">
+                                暂无积分获取记录
+                            </div>
+                        )}
+                    </div>
                 </div>
 
                 {/* 财务流水双栏布局 */}

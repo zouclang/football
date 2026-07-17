@@ -69,13 +69,13 @@ export default async function MatchesPage(props: { searchParams: Promise<{ tourn
     if (matchIds.length > 0) {
         const placeholders = matchIds.map(() => '?').join(',')
         const attRows = db.prepare(`
-            SELECT matchId, userId, goals, assists, fee
+            SELECT matchId, userId, goals, assists, fee, isDropIn, isLate, isNoShow, isGK
             FROM "Attendance"
             WHERE matchId IN (${placeholders})
         `).all(...matchIds) as any[]
         for (const a of attRows) {
             if (!attendanceMap.has(a.matchId)) attendanceMap.set(a.matchId, [])
-            attendanceMap.get(a.matchId)!.push({ userId: a.userId, goals: a.goals, assists: a.assists, fee: a.fee })
+            attendanceMap.get(a.matchId)!.push({ userId: a.userId, goals: a.goals, assists: a.assists, fee: a.fee, isDropIn: a.isDropIn === 1, isLate: a.isLate === 1, isNoShow: a.isNoShow === 1, isGK: a.isGK === 1 })
         }
     }
 

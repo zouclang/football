@@ -15,7 +15,16 @@ export type MatchInput = {
     theirScore?: number | null
     cost?: number // 热身水杂费
     result?: string | null // "WIN", "DRAW", "LOSS"
-    attendances?: { userId: string, goals: number, assists: number, fee?: number }[]
+    attendances?: { 
+        userId: string, 
+        goals: number, 
+        assists: number, 
+        fee?: number,
+        isDropIn?: boolean,
+        isLate?: boolean,
+        isNoShow?: boolean,
+        isGK?: boolean
+    }[]
 }
 
 export async function getMatches() {
@@ -61,7 +70,11 @@ export async function saveMatch(data: MatchInput) {
                     userId: att.userId,
                     goals: att.goals || 0,
                     assists: att.assists || 0,
-                    fee: att.fee || 0
+                    fee: att.fee || 0,
+                    isDropIn: att.isDropIn || false,
+                    isLate: att.isLate || false,
+                    isNoShow: att.isNoShow || false,
+                    isGK: att.isGK || false
                 }))
             })
         }
@@ -75,7 +88,11 @@ export async function saveMatch(data: MatchInput) {
                         userId: att.userId,
                         goals: att.goals || 0,
                         assists: att.assists || 0,
-                        fee: att.fee || 0
+                        fee: att.fee || 0,
+                        isDropIn: att.isDropIn || false,
+                        isLate: att.isLate || false,
+                        isNoShow: att.isNoShow || false,
+                        isGK: att.isGK || false
                     }))
                 }
             }

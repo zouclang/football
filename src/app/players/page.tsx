@@ -1,6 +1,7 @@
 import { getDb } from '@/lib/sqlite'
 import { PlayerClient } from '@/components/PlayerClient'
 import { getSession } from '@/lib/auth'
+import { getPlayerScores } from '@/lib/actions/player-score'
 import { Suspense } from 'react'
 
 export const dynamic = 'force-dynamic'
@@ -15,6 +16,7 @@ export default async function PlayersPage(props: { searchParams: Promise<{ year?
     const thisYear = (isAll || isBefore2026) ? null : parseInt(yearQuery, 10)
 
     const db = getDb()
+    const scores = await getPlayerScores()
 
     // 直接 SQL：better-sqlite3 同步执行，无 IPC 开销
     // Prisma 同等查询要 1.3-1.7s；这里 <5ms
@@ -79,6 +81,14 @@ export default async function PlayersPage(props: { searchParams: Promise<{ year?
         const yearlyAssists = stat?.assists ?? 0
         const rate = totalMatchCount > 0 ? Math.round((attendedCount / totalMatchCount) * 100) : 0
 
+        const userScoreDetails = scores[user.id]?.details || []
+        const filteredScoreTotal = userScoreDetails.filter(d => {
+            if (isAll) return true;
+            if (!d.date) return false;
+            if (isBefore2026) return new Date(d.date).getUTCFullYear() < 2026;
+            return new Date(d.date).getUTCFullYear() === thisYear;
+        }).reduce((sum, d) => sum + d.points, 0)
+
         return {
             ...user,
             isActive: user.isActive === 1,
@@ -88,6 +98,7 @@ export default async function PlayersPage(props: { searchParams: Promise<{ year?
             yearlyAppearances: attendedCount,
             yearlyGoals,
             yearlyAssists,
+            score: filteredScoreTotal,
         } as any
     })
 

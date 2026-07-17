@@ -25,6 +25,7 @@ type Player = {
     positions: string | null
     teamRole: string | null
     personalBalance: number
+    score?: number
     attendanceRate?: string
     yearlyAppearances?: number
     yearlyGoals?: number
@@ -72,6 +73,10 @@ export function PlayerClient({ initialPlayers, currentYear, role = 'player', cur
     }
 
     const sortedPlayers = [...initialPlayers].sort((a, b) => {
+        const scoreA = a.score || 0
+        const scoreB = b.score || 0
+        if (scoreA !== scoreB) return scoreB - scoreA
+
         const numA = parseInt(a.jerseyNumber || '999', 10)
         const numB = parseInt(b.jerseyNumber || '999', 10)
         if (numA !== numB) return numA - numB
@@ -174,6 +179,7 @@ export function PlayerClient({ initialPlayers, currentYear, role = 'player', cur
                             <th className="px-6 py-4 font-medium">球员</th>
                             <th className="px-6 py-4 font-medium">入学级别 / 学院或专业</th>
                             <th className="px-6 py-4 font-medium">个人账户结余</th>
+                            <th className="px-6 py-4 font-medium text-center text-emerald-700">当前总积分</th>
                             <th className="px-6 py-4 font-medium text-center whitespace-nowrap">{currentYear === 'ALL' ? '26年之后' : currentYear === 'BEFORE_2026' ? '2026之前' : `${currentYear || currentSystemYear}年`}<br />出勤率</th>
                             <th className="px-6 py-4 font-medium text-center whitespace-nowrap">{currentYear === 'ALL' ? '生涯累计' : currentYear === 'BEFORE_2026' ? '2026之前' : `${currentYear || currentSystemYear}年`}<br />出勤次数</th>
                             <th className="px-6 py-4 font-medium text-center whitespace-nowrap">{currentYear === 'ALL' ? '生涯累计' : currentYear === 'BEFORE_2026' ? '2026之前' : `${currentYear || currentSystemYear}年`}<br />进球数</th>
@@ -247,6 +253,9 @@ export function PlayerClient({ initialPlayers, currentYear, role = 'player', cur
                                     <span className={player.personalBalance < 0 ? 'text-red-500 font-semibold' : 'text-slate-900'}>
                                         ¥{player.personalBalance.toFixed(2)}
                                     </span>
+                                </td>
+                                <td className="px-6 py-4 text-center">
+                                    <span className="font-bold text-lg text-emerald-600">{player.score || 0}</span>
                                 </td>
                                 <td className="px-6 py-4 text-center">
                                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">

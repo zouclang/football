@@ -3,7 +3,9 @@ import { Trophy, Users, DollarSign, Activity } from 'lucide-react'
 import { DashboardCharts } from '@/components/DashboardCharts'
 import { DashboardFinanceChartClient } from '@/components/DashboardFinanceChartClient'
 import { DashboardLeaderboardClient } from '@/components/DashboardLeaderboardClient'
+import { DashboardAttendanceChartClient } from '@/components/DashboardAttendanceChartClient'
 import { DashboardYearSelector } from '@/components/DashboardYearSelector'
+import { getPlayerScores } from '@/lib/actions/player-score'
 // #8: 改用统一的 cn()，删除本文件内的重复定义
 import { cn } from '@/lib/utils'
 
@@ -24,14 +26,16 @@ export default async function DashboardPage(props: { searchParams: Promise<{ yea
     personalTransactions,
     attendances,
     users,
-    memberFundTxs
+    memberFundTxs,
+    scores,
+    matches
   ] = await Promise.all([
     prisma.user.count(),
     prisma.match.count({
       where: (isAll || isBefore2026) ? {} : {
         date: {
-          gte: new Date(parseInt(year), 0, 1),
-          lt: new Date(parseInt(year) + 1, 0, 1)
+          gte: new Date(Date.UTC(parseInt(year), 0, 1)),
+          lt: new Date(Date.UTC(parseInt(year) + 1, 0, 1))
         }
       }
     }),
@@ -53,6 +57,23 @@ export default async function DashboardPage(props: { searchParams: Promise<{ yea
     }),
     prisma.memberFundTransaction.findMany({
       select: { id: true, type: true, totalAmount: true }
+    }),
+    getPlayerScores(),
+    prisma.match.findMany({
+      where: {
+        date: {
+          gte: new Date(2026, 0, 1)
+        }
+      },
+      select: {
+        date: true,
+        opponent: true,
+        type: true,
+        _count: {
+          select: { attendances: true }
+        }
+      },
+      orderBy: { date: 'asc' }
     })
   ])
 
@@ -175,6 +196,31 @@ export default async function DashboardPage(props: { searchParams: Promise<{ yea
       }
     })
 
+  // Process Points Leaderboard
+  const pointsCounts = users.map(user => {
+      const userScoreDetails = scores[user.id]?.details || []
+      const filteredScoreTotal = userScoreDetails.filter(d => {
+          if (isAll) return true;
+          if (!d.date) return false;
+          if (isBefore2026) return new Date(d.date).getUTCFullYear() < 2026;
+          return new Date(d.date).getUTCFullYear() === parseInt(year);
+      }).reduce((sum, d) => sum + d.points, 0)
+      return { id: user.id, name: user.name, count: filteredScoreTotal }
+  })
+  
+  const topPoints = pointsCounts
+    .filter(p => p.count > 0)
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 5)
+    .map(p => ({ name: p.name, count: p.count }))
+
+  // Process Attendance Timeline
+  const attendanceTimelineData = matches.map(m => ({
+    date: m.date,
+    opponent: m.opponent,
+    count: m._count.attendances
+  }))
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -222,7 +268,11 @@ export default async function DashboardPage(props: { searchParams: Promise<{ yea
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <DashboardFinanceChartClient expenseData={expenseData} incomeData={incomeData} />
 
-        <DashboardLeaderboardClient attendanceData={topAttendees} goalsData={topGoals} assistsData={topAssists} />
+        <DashboardLeaderboardClient attendanceData={topAttendees} goalsData={topGoals} assistsData={topAssists} pointsData={topPoints} />
+      </div>
+
+      <div className="grid grid-cols-1 gap-6">
+        <DashboardAttendanceChartClient timelineData={attendanceTimelineData} />
       </div>
     </div>
   )

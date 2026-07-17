@@ -82,12 +82,27 @@ model Attendance {
   assists   Int      @default(0)
   createdAt DateTime @default(now())
   fee       Float?   @default(0)
+  isDropIn  Boolean  @default(false)
+  isLate    Boolean  @default(false)
+  isNoShow  Boolean  @default(false)
+  isGK      Boolean  @default(false)
   match     Match    @relation(fields: [matchId], references: [id])
   user      User     @relation(fields: [userId], references: [id])
 
   @@unique([userId, matchId])
   @@index([userId])
   @@index([matchId])
+}
+
+model ScoreRule {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  name        String
+  type        String
+  points      Float
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
 model TeamFundTransaction {
